@@ -304,8 +304,10 @@
   function showTitle() {
     const buttons = DIFFICULTY_ORDER.map((key, i) => {
       const d = DIFFICULTIES[key];
+      const g = d.speedGuide;
       return `<button type="button" class="diff-btn diff-${key} ${i === ui.selected ? 'selected' : ''}" data-index="${i}">
-        <span class="diff-key">${i + 1}</span>${d.label}</button>`;
+        <span class="diff-name"><span class="diff-key">${i + 1}</span>${d.label}</span>
+        <span class="diff-speed num" title="全4面を再挑戦なしで通せる確率 50%〜80% の打鍵速度">${g.p50.toFixed(1)}〜${g.p80.toFixed(1)} 打/秒</span></button>`;
     }).join('');
     const sel = DIFFICULTIES[DIFFICULTY_ORDER[ui.selected]];
     showOverlay(`
@@ -321,6 +323,7 @@
       </ul>
       <div class="diff-select">${buttons}</div>
       <p class="diff-desc">${escapeHtml(sel.desc)}</p>
+      <p class="diff-note">打/秒＝クリア率50〜80%の目安（正しく打てたキー数/秒。寿司打の「平均キータイプ数」相当、×60でe-typingのWPM相当）</p>
       <p class="blink"><kbd>←</kbd><kbd>→</kbd> / <kbd>1</kbd>〜<kbd>4</kbd> で難易度を選び、<kbd>Space</kbd> で開始</p>`);
     dom.overlayContent.querySelectorAll('.diff-btn').forEach((b) => {
       b.addEventListener('click', () => { selectDifficulty(Number(b.dataset.index)); start(); });
