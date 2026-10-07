@@ -269,7 +269,8 @@
       <dt>総ダメージ</dt><dd class="num">${s.damage}</dd>
       <dt>最大コンボ</dt><dd class="num">${s.maxCombo}</dd>
       <dt>中断成功</dt><dd class="num">${s.interrupts}</dd>
-      <dt>詠唱が途切れた</dt><dd class="num">${s.broken}</dd>
+      <dt>加護で防いだ</dt><dd class="num">${s.warded}</dd>
+      <dt>被弾中の詠唱</dt><dd class="num">${s.disrupted}</dd>
       <dt>KPM</dt><dd class="num">${kpm}</dd>
       <dt>正確率</dt><dd class="num">${acc}%</dd>
     </dl>`;
@@ -317,7 +318,7 @@
         <li><strong>ボスの詠唱バー</strong>を見て対応：<span class="tl-item type-buster">タンクバスター</span>は<strong>守りの盾</strong>、
           <span class="tl-item type-interruptible">中断可能</span>は<strong>黙れ</strong>、<span class="tl-item type-dot">継続ダメージ</span>は<strong>浄化</strong>、
           <span class="tl-item type-raidwide">全体攻撃</span>の後は回復。</li>
-        <li>詠唱中に大技を受けると<strong>詠唱が途切れる</strong>。間に合うかを見極めよう。</li>
+        <li>被弾しても入力は途切れない（威力が少し下がる）。<strong>盾・黙れ・浄化は先行入力OK</strong>。着弾前に間に合わせよう。</li>
         <li>⏱ が 0 になると<strong>時間切れ（全滅技）</strong>。守ってばかりでは勝てない。</li>
       </ul>
       <div class="diff-select">${buttons}</div>
@@ -375,10 +376,10 @@
     const r = state.result;
     const hit = state.lastHit;
     if (r.reason === 'enrage') return '時間切れ。回復や防御に偏りすぎず、MPを循環させて火力を出そう。';
-    if (r.reason === 'dot') return '継続ダメージで倒れた。「浄化」で解除しよう。';
+    if (r.reason === 'dot') return '継続ダメージで倒れた。詠唱バーが出たら先に「浄化」を唱えれば加護で防げる。';
     if (!hit) return '';
-    if (hit.type === 'buster') return `「${hit.name}」はタンクバスター。着弾前に「守りの盾」を張ろう。`;
-    if (hit.type === 'interruptible' || state.player.vuln) return '中断可能技は「黙れ」で止めよう。失敗すると被ダメージが増える。';
+    if (hit.type === 'buster') return `「${hit.name}」はタンクバスター。着弾前に「守りの盾」を。直前の全体攻撃で盾が消費されないよう注意。`;
+    if (hit.type === 'interruptible' || state.player.vuln) return '中断可能技は「黙れ」で止めよう。NEXT に見えたら先に唱えて構えておける。';
     if (hit.type === 'raidwide') return '全体攻撃の前にHPを戻しておこう。「再生の祈り」は先に置いておくと効率的。';
     return 'HPが減ったら早めに回復しよう。';
   }
@@ -445,8 +446,12 @@
           Sfx.heal();
           handDirty = true;
           break;
-        case 'fizzle':
-          floatText(dom.playerFx, '効果なし', 'buff');
+        case 'warded':
+          floatText(dom.playerFx, '加護！', 'buff');
+          Sfx.heal();
+          break;
+        case 'disrupted':
+          // 入力中の表示はそのまま。カード下部の威力と「乱れ」タグだけ更新する
           handDirty = true;
           break;
         case 'interrupted':
@@ -472,10 +477,6 @@
         case 'redraw':
           cardNodes.slice(0, 3).forEach((n) => retrigger(n.node, 'renew', 700));
           Sfx.key();
-          handDirty = true;
-          break;
-        case 'castBroken':
-          floatText(dom.playerFx, '詠唱中断！', 'hurt');
           handDirty = true;
           break;
         case 'enemyCast':
