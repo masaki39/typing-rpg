@@ -62,12 +62,21 @@
       cooldowns: {},
       cast: null,
       combo: 0,
-      stats: newStats(),
+      stats: newStats(), // 通しの記録 (再挑戦を含む)
+      stageStats: newStats(), // 現在のステージの記録 (ランク判定用)
+      runResults: [], // 撃破したステージの結果
+      retries: 0,
       result: null,
       lastHit: null,
     };
 
     const diff = () => DIFFICULTIES[state.difficulty];
+
+    /** 通しとステージの両方の記録を進める */
+    function stat(key, n = 1) {
+      state.stats[key] += n;
+      state.stageStats[key] += n;
+    }
 
     // ---------- 手札 ----------
 
@@ -171,6 +180,8 @@
 
     function startRun() {
       state.stats = newStats();
+      state.runResults = [];
+      state.retries = 0;
       startStage(0);
     }
 
@@ -196,6 +207,7 @@
       };
       state.cooldowns = {};
       state.combo = 0;
+      state.stageStats = newStats();
       dealAttackHand();
       resetCast();
       state.result = null;
@@ -205,7 +217,8 @@
       emit('stageStart');
     }
 
-    function retryStage() {
+    function retryStage({ penalty = true } = {}) {
+      if (penalty) state.retries++;
       startStage(state.stage);
     }
 
@@ -235,11 +248,11 @@
       const mult = ability.type === 'enrage' ? 1 : diff().castMult;
       e.cast = { ability, elapsed: 0, duration: ability.cast * mult * 1000 };
       emit('enemyCast', { ability });
-      // 「黙れ」の構え中なら詠唱開始と同時に止める (先行入力を正当な対応にする)
+      // 「黙せよ」の構え中なら詠唱開始と同時に止める (先行入力を正当な対応にする)
       const p = state.player;
       if (ability.type === 'interruptible' && p.silenceReady) {
         p.silenceReady = null;
-        interruptEnemy('構えていた「黙れ」が');
+        interruptEnemy('構えていた「黙せよ」が');
       }
     }
 
@@ -248,7 +261,7 @@
       log(`${prefix}${e.cast.ability.name}を中断させた！`);
       e.cast = null;
       e.gapLeft = e.def.gap * diff().castMult * 1000;
-      state.stats.interrupts++;
+      stat('interrupts');
       emit('interrupted');
     }
 
@@ -290,7 +303,7 @@
       if (ability.type === 'dot') {
         if (p.ward) {
           p.ward = null;
-          state.stats.warded++;
+          stat('warded');
           log(`加護が${ability.dot.name}を防いだ！`);
           emit('warded');
         } else {
@@ -313,7 +326,7 @@
       const sec = ms / 1000;
       const p = state.player;
       const e = state.enemy;
-      state.stats.activeMs += ms;
+      stat('activeMs', ms);
 
       p.mp = Math.min(p.maxMp, p.mp + diff().mpRegen * sec);
       for (const id of Object.keys(state.cooldowns)) {
@@ -363,7 +376,7 @@
       const list = cards();
       const accepted = c.live.filter((i) => isEnabled(list[i]) && c.matchers[i].input(ch));
       if (accepted.length === 0) {
-        state.stats.miss++;
+        stat('miss');
         if (c.started) c.misses++;
         if (state.combo > 0) log(`コンボが途切れた… (${state.combo})`);
         state.combo = 0;
@@ -372,7 +385,7 @@
       }
       c.live = accepted;
       c.started = true;
-      state.stats.correct++;
+      stat('correct');
       emit('key');
       const done = accepted.find((i) => c.matchers[i].finished);
       if (done !== undefined) castSpell(done);
@@ -392,10 +405,10 @@
       const c = state.cast;
       const p = state.player;
       const e = state.enemy;
-      state.stats.casts++;
+      stat('casts');
       if (c.misses === 0) {
         state.combo++;
-        state.stats.maxCombo = Math.max(state.stats.maxCombo, state.combo);
+        for (const s of [state.stats, state.stageStats]) s.maxCombo = Math.max(s.maxCombo, state.combo);
       }
       p.mp = Battle.applyMp(p.mp, spell, p.maxMp);
       if (spell.cd) state.cooldowns[spell.id] = spell.cd * 1000;
@@ -408,7 +421,7 @@
           });
           p.empower = null;
           e.hp = Math.max(0, e.hp - r.damage);
-          state.stats.damage += r.damage;
+          stat('damage', r.damage);
           emit('enemyHit', { amount: r.damage, tier: spell.tier, empowered });
           log(`「${spell.name}」！ ${e.name}に${r.damage}ダメージ`);
           replaceAttack(index);
@@ -466,8 +479,17 @@
 
     function win() {
       const e = state.enemy;
+      const p = state.player;
+      const s = state.stageStats;
       log(`${e.name}を倒した！`);
-      state.result = { win: true, timeLeft: e.enrageLeft, hp: state.player.hp };
+      const score = Battle.stageScore({
+        timeLeft: e.enrageLeft, timeTotal: e.enrageTotal, hp: p.hp, maxHp: p.maxHp, correct: s.correct, miss: s.miss,
+      });
+      state.result = {
+        win: true, stage: state.stage, timeLeft: e.enrageLeft, timeUsed: e.enrageTotal - e.enrageLeft, hp: p.hp,
+        score: score.score, rank: score.rank, stats: { ...s },
+      };
+      state.runResults[state.stage] = state.result;
       state.phase = state.stage >= ENEMIES.length - 1 ? 'allClear' : 'stageClear';
       emit('win');
     }
@@ -480,13 +502,21 @@
       emit('lose', { reason });
     }
 
+    /** 全ステージ撃破時の通しの結果 */
+    function runSummary() {
+      const results = state.runResults.filter(Boolean);
+      const r = Battle.runScore(results.map((x) => x.score), state.retries);
+      const timeUsed = results.reduce((a, x) => a + x.timeUsed, 0);
+      return { ...r, timeUsed, retries: state.retries, results };
+    }
+
     function drain() {
       return events.splice(0, events.length);
     }
 
     return {
       state, cards, isEnabled, upcoming, setDifficulty, startRun, startStage, retryStage, nextStage,
-      tick, key, cancelCast, drain, diff, redraw, canRedraw, isUsefulAttack,
+      tick, key, cancelCast, drain, diff, redraw, canRedraw, isUsefulAttack, runSummary,
     };
   }
 

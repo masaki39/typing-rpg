@@ -22,3 +22,18 @@ test('ダメージ計算', () => {
   assert.equal(B.computeDamage({ base: 1, misses: 9 }).damage, 1);
   assert.equal(B.comboMultiplier(99), 1.5);
 });
+
+test('ステージ評価: 残り時間・HP・正確率が高いほど高得点', () => {
+  const best = B.stageScore({ timeLeft: 50, timeTotal: 100, hp: 100, maxHp: 100, correct: 100, miss: 0 });
+  assert.deepEqual(best, { score: 1000, rank: 'S' });
+  const worst = B.stageScore({ timeLeft: 0, timeTotal: 100, hp: 1, maxHp: 100, correct: 80, miss: 20 });
+  assert.equal(worst.rank, 'C');
+  const mid = B.stageScore({ timeLeft: 20, timeTotal: 100, hp: 60, maxHp: 100, correct: 95, miss: 5 });
+  assert.ok(mid.score > worst.score && mid.score < best.score);
+});
+
+test('通しの評価は再挑戦で減点される', () => {
+  assert.equal(B.runScore([900, 900, 900, 900], 0).rank, 'S');
+  assert.equal(B.runScore([900, 900, 900, 900], 2).score, 3400);
+  assert.equal(B.runScore([100], 5).score, 0);
+});

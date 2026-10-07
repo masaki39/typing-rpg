@@ -1,0 +1,111 @@
+/* ボス SVG (js/sprites.js) の表示とアイドルアニメーション */
+.boss-svg {
+  display: block;
+  width: var(--boss-size, 150px);
+  height: var(--boss-size, 150px);
+  overflow: visible;
+  transition: filter 0.6s;
+}
+.boss-svg .spr-aura { opacity: 0.55; transition: opacity 0.6s; }
+.boss-svg .spr-glow { transition: filter 0.6s; }
+
+/* 状態クラス (コンテナ .sprite に付与) */
+.sprite.enraged .boss-svg {
+  filter: drop-shadow(0 0 6px rgba(255, 60, 50, 0.55)) saturate(1.15) brightness(1.03);
+}
+.sprite.enraged .boss-svg .spr-aura { opacity: 0.75; }
+.sprite.phase-2 .boss-svg .spr-aura { opacity: 0.8; }
+.sprite.phase-3 .boss-svg .spr-aura { opacity: 1; }
+.sprite.phase-2 .boss-svg .spr-glow { filter: brightness(1.25) drop-shadow(0 0 2px #bff8ff); }
+.sprite.phase-3 .boss-svg .spr-glow { filter: brightness(1.5) drop-shadow(0 0 4px #e6fdff); }
+.sprite.phase-3 .boss-svg .spr-maw { filter: brightness(1.3); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .boss-svg .spr-aura,
+  .boss-svg .spr-slime-body,
+  .boss-svg .spr-eye,
+  .boss-svg .spr-bubble,
+  .boss-svg .spr-drop,
+  .boss-svg .spr-flame,
+  .boss-svg .spr-ember,
+  .boss-svg .spr-wing-l,
+  .boss-svg .spr-wing-r,
+  .boss-svg .spr-spark,
+  .boss-svg .spr-bolt,
+  .boss-svg .spr-dwing-l,
+  .boss-svg .spr-dwing-r,
+  .boss-svg .spr-dragon-body,
+  .boss-svg .spr-frost,
+  .boss-svg .spr-maw { transform-box: fill-box; }
+
+  .boss-svg .spr-aura { transform-origin: center; animation: spr-pulse 3.2s ease-in-out infinite; }
+
+  /* まばたき */
+  .boss-svg .spr-eye { transform-origin: center; animation: spr-blink 4.6s infinite; }
+  .spr-salamander .spr-eye { animation-duration: 5.4s; }
+  .spr-thunderbird .spr-eye { animation-duration: 6.2s; }
+
+  /* スライム */
+  .spr-slime .spr-slime-body { transform-origin: 50% 100%; animation: spr-wobble 2.4s ease-in-out infinite; }
+  .spr-slime .spr-bubble { transform-origin: center; animation: spr-bubble 3.6s ease-in-out infinite; }
+  .spr-slime .spr-drop { transform-origin: center; animation: spr-float 3s ease-in-out infinite; }
+
+  /* サラマンダー */
+  .spr-salamander .spr-flame { transform-origin: 50% 100%; animation: spr-flicker 0.5s ease-in-out infinite alternate; }
+  .spr-salamander .spr-flame-sm { animation-duration: 0.42s; }
+  .spr-salamander .spr-ember { transform-origin: center; animation: spr-ember 2.8s ease-out infinite; }
+
+  /* サンダーバード */
+  .spr-thunderbird .spr-wing-l { transform-origin: 100% 85%; animation: spr-flap-l 1.3s ease-in-out infinite; }
+  .spr-thunderbird .spr-wing-r { transform-origin: 0% 85%; animation: spr-flap-r 1.3s ease-in-out infinite; }
+  .spr-thunderbird .spr-spark { animation: spr-spark 2.4s steps(1) infinite; }
+  .spr-thunderbird .spr-bolt { animation: spr-charge 2.4s ease-in-out infinite; }
+
+  /* 氷の魔竜 */
+  .spr-dragon .spr-dwing-l { transform-origin: 100% 80%; animation: spr-dflap-l 4s ease-in-out infinite; }
+  .spr-dragon .spr-dwing-r { transform-origin: 0% 80%; animation: spr-dflap-r 4s ease-in-out infinite; }
+  .spr-dragon .spr-dragon-body { transform-origin: 50% 100%; animation: spr-breathe 4s ease-in-out infinite; }
+  .spr-dragon .spr-maw { animation: spr-charge 4s ease-in-out infinite; }
+  .spr-dragon .spr-frost { transform-origin: center; animation: spr-frost 3.2s linear infinite; }
+  .sprite.phase-3 .spr-dragon .spr-frost { animation-duration: 2s; }
+}
+
+@keyframes spr-pulse { 0%, 100% { opacity: var(--spr-aura-lo, 0.45); transform: scale(0.96); } 50% { opacity: var(--spr-aura-hi, 0.75); transform: scale(1.03); } }
+.sprite.phase-2 .boss-svg { --spr-aura-lo: 0.65; --spr-aura-hi: 0.95; }
+.sprite.phase-3 .boss-svg { --spr-aura-lo: 0.85; --spr-aura-hi: 1; }
+
+@keyframes spr-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+@keyframes spr-wobble {
+  0%, 100% { transform: scale(1, 1); }
+  30% { transform: scale(1.045, 0.955); }
+  65% { transform: scale(0.975, 1.03); }
+}
+@keyframes spr-bubble {
+  0% { transform: translateY(4px) scale(0.8); opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 0.8; }
+  100% { transform: translateY(-16px) scale(1.1); opacity: 0; }
+}
+@keyframes spr-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes spr-flicker {
+  0% { transform: scale(1, 1) skewX(0deg); }
+  50% { transform: scale(0.94, 1.08) skewX(-3deg); }
+  100% { transform: scale(1.05, 0.93) skewX(3deg); }
+}
+@keyframes spr-ember {
+  0% { transform: translate(0, 6px) scale(1); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translate(-6px, -26px) scale(0.3); opacity: 0; }
+}
+@keyframes spr-flap-l { 0%, 100% { transform: rotate(4deg); } 50% { transform: rotate(-12deg); } }
+@keyframes spr-flap-r { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(12deg); } }
+@keyframes spr-spark { 0%, 100% { opacity: 0; } 10% { opacity: 1; } 16% { opacity: 0.2; } 22% { opacity: 1; } 34% { opacity: 0; } }
+@keyframes spr-charge { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.35); } }
+@keyframes spr-dflap-l { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-5deg); } }
+@keyframes spr-dflap-r { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(5deg); } }
+@keyframes spr-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.012, 1.025); } }
+@keyframes spr-frost {
+  0% { transform: translate(0, 0) scale(0.4) rotate(0deg); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translate(0, 34px) scale(1.1) rotate(90deg); opacity: 0; }
+}

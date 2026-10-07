@@ -42,7 +42,7 @@
   /*
    * 攻撃呪文の語彙。威力は打鍵数から自動計算 (長いほど強い)。
    * 左手小指 (a/q/z) の負荷を下げるため、あ段が少なく z を含まない語を選んでいる。
-   * 支援呪文 (ち/さ/ま/も/き/み) と頭のかなが重ならないようにし、
+   * 支援呪文 (ち/さ/ま/も/じ/み) と頭のかなが重ならないようにし、
    * どの呪文のローマ字も他の呪文の途中で完成しないこと (テストで検査)。
    */
   const ATTACKS = [
@@ -81,12 +81,12 @@
       amount: 30, desc: 'HPを即時回復' },
     { id: 'regen', name: '再生の祈り', kana: 'さいせいのいのり', kind: 'heal', role: 'regen', mp: 14, cd: 20,
       perSec: 4, duration: 12, desc: '12秒間HPを継続回復' },
-    { id: 'barrier', name: '守りの壁', kana: 'まもりのへき', kind: 'guard', role: 'barrier', mp: 10, cd: 12,
+    { id: 'barrier', name: '守りの壁', kana: 'まもりのかべ', kind: 'guard', role: 'barrier', mp: 10, cd: 12,
       reduce: 0.75, duration: 10, desc: '大技1回を75%軽減(最大10秒)' },
     { id: 'silence', name: '黙せよ', kana: 'もくせよ', kind: 'silence', role: 'interrupt', mp: 5, cd: 10,
-      ready: 5, desc: '中断可能技を止める・先に唱えると構え5秒' },
-    { id: 'cleanse', name: '清め', kana: 'きよめ', kind: 'pure', role: 'cleanse', mp: 8, cd: 8,
-      ward: 6, desc: 'DoT解除＋6秒間 DoTを防ぐ加護' },
+      ready: 5, desc: '中断技を止める／構え5秒' },
+    { id: 'cleanse', name: '浄化', kana: 'じょうか', kind: 'pure', role: 'cleanse', mp: 8, cd: 8,
+      ward: 6, desc: 'DoT解除＋6秒間の加護' },
     { id: 'empower', name: '漲れ', kana: 'みなぎれ', kind: 'buff', role: 'buff', mp: 10, cd: 25,
       mult: 1.6, desc: '次の攻撃呪文の威力1.6倍' },
   ];
@@ -96,7 +96,7 @@
     raidwide: { label: '全体攻撃', hint: '回復の準備を' },
     buster: { label: 'タンクバスター', hint: '「守りの壁」で軽減せよ！' },
     interruptible: { label: '中断可能', hint: '「黙せよ」で中断せよ！（先行入力可）' },
-    dot: { label: '継続ダメージ', hint: '着弾前の「清め」で防げる' },
+    dot: { label: '継続ダメージ', hint: '着弾前の「浄化」で防げる' },
     enrage: { label: '時間切れ', hint: '倒しきれなかった…' },
   };
 

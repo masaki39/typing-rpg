@@ -4,11 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>呪文詠唱タイピングRPG</title>
+  <meta name="description" content="呪文をローマ字で詠唱して戦う、ボス戦特化のタイピングRPG。ボスの詠唱を読み、壁・中断・浄化を唱え分けて4体の魔物を討伐せよ。ブラウザですぐ遊べます。">
+  <meta name="theme-color" content="#0d111c">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="呪文詠唱タイピングRPG">
+  <meta property="og:description" content="呪文をローマ字で詠唱して戦う、ボス戦特化のタイピングRPG。ボスの詠唱を読み、唱え分けて生き残れ。">
+  <meta property="og:image" content="https://masaki39.github.io/typing-rpg/og.png">
+  <meta property="og:url" content="https://masaki39.github.io/typing-rpg/">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <!-- Web フォント (オフラインでも style.css のフォールバックで崩れない) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="sprites.css">
 </head>
 <body>
   <div id="app">
@@ -20,7 +30,8 @@
       <div class="topbar-right">
         <span id="diff-label" class="chip"></span>
         <span id="stage-label" class="stage-label num"></span>
-        <button id="sound-toggle" class="icon-btn" type="button" title="効果音の切り替え">🔊</button>
+        <button id="sound-toggle" class="icon-btn" type="button" title="ミュートの切り替え" aria-label="ミュートの切り替え">🔊</button>
+        <button id="pause-btn" class="icon-btn" type="button" title="一時停止 (Esc)" aria-label="一時停止">❚❚</button>
       </div>
     </header>
 
@@ -37,12 +48,13 @@
           </div>
         </div>
         <div class="gauge-track boss-hp">
+          <div id="enemy-hp-lag" class="gauge-lag"></div>
           <div id="enemy-hp-fill" class="gauge-fill"></div>
           <span id="enemy-hp-text" class="gauge-text num"></span>
         </div>
         <div class="boss-body">
           <div class="boss-aura"></div>
-          <div id="enemy-sprite" class="sprite"></div>
+          <div id="enemy-sprite" class="sprite" role="img"></div>
           <div id="enemy-fx" class="fx-layer"></div>
         </div>
         <div id="boss-cast" class="castbar">
@@ -64,7 +76,7 @@
         <section class="panel stats-panel">
           <dl class="stat-grid">
             <div><dt>COMBO</dt><dd id="stat-combo" class="num">0</dd></div>
-            <div><dt>KPM</dt><dd id="stat-kpm" class="num">0</dd></div>
+            <div><dt>打/秒</dt><dd id="stat-speed" class="num">0.0</dd></div>
             <div><dt>ACC</dt><dd id="stat-acc" class="num">-</dd></div>
             <div><dt>中断</dt><dd id="stat-int" class="num">0</dd></div>
           </dl>
@@ -79,7 +91,7 @@
       <div class="party-gauges">
         <div class="gauge hp">
           <span class="gauge-label">HP</span>
-          <div class="gauge-track"><div id="player-hp-fill" class="gauge-fill"></div></div>
+          <div class="gauge-track"><div id="player-hp-lag" class="gauge-lag"></div><div id="player-hp-fill" class="gauge-fill"></div></div>
           <span id="player-hp-text" class="gauge-num num"></span>
         </div>
         <div class="gauge mp">
@@ -124,19 +136,32 @@
       <div id="skill-row" class="hotbar"></div>
     </section>
 
-    <p class="help">打ち始めた文字で呪文が決まる ／ <kbd>Backspace</kbd> 詠唱を破棄 ／ <kbd>Space</kbd> 攻撃呪文を引き直し ／ 入力は<strong>半角英数（IMEオフ）</strong></p>
-    <p id="ime-warning" class="ime-warning">IMEがオンになっています。半角英数入力に切り替えてください。</p>
+    <p class="help">打ち始めた文字で呪文が決まる ／ <kbd>Backspace</kbd> 詠唱を破棄 ／ <kbd>Space</kbd> 攻撃呪文を引き直し ／ <kbd>Esc</kbd> 一時停止 ／ 入力は<strong>半角英数（IMEオフ）</strong></p>
 
-    <div id="overlay" class="overlay">
-      <div id="overlay-content" class="overlay-panel"></div>
+    <!-- ステージ開始の演出 -->
+    <div id="banner" class="banner" aria-live="polite">
+      <div class="banner-inner">
+        <span id="banner-stage" class="banner-stage"></span>
+        <span id="banner-name" class="banner-name"></span>
+        <span id="banner-call" class="banner-call"></span>
+      </div>
     </div>
   </div>
+
+  <p id="ime-warning" class="ime-warning" role="alert">IMEがオンになっています。半角英数入力に切り替えてください。</p>
+
+  <div id="overlay" class="overlay" role="dialog" aria-modal="true" aria-hidden="false">
+    <div id="overlay-content" class="overlay-panel"></div>
+  </div>
+
+  <noscript><p class="noscript">このゲームを遊ぶには JavaScript を有効にしてください。</p></noscript>
 
   <script src="js/romaji.js"></script>
   <script src="js/battle.js"></script>
   <script src="js/data.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/sfx.js"></script>
+  <script src="js/sprites.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>

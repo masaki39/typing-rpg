@@ -181,6 +181,8 @@ export function runStage({
     hp: Math.max(0, Math.round(s.player.hp)),
     enemyHpRatio: s.enemy.hp / s.enemy.maxHp,
     seconds: Math.round(s.stats.activeMs / 1000),
+    score: s.result && s.result.score,
+    rank: s.result && s.result.rank,
   };
 }
 

@@ -69,7 +69,7 @@ test('障壁はリキャスト中は使えない', () => {
   assert.equal(engine.isEnabled(barrier), true);
 });
 
-test('中断可能技: 「黙れ」で中断、失敗すると被ダメージ増加', () => {
+test('中断可能技: 「黙せよ」で中断、失敗すると被ダメージ増加', () => {
   const ok = setup({ stage: 2 });
   forceEnemyCast(ok, 'hammer');
   ok.tick(1000);
@@ -157,7 +157,7 @@ test('加護は時間で切れる', () => {
   assert.ok(engine.state.player.dot);
 });
 
-test('「黙れ」の先行入力: 構え中に中断可能技の詠唱が始まると即座に止める', () => {
+test('「黙せよ」の先行入力: 構え中に中断可能技の詠唱が始まると即座に止める', () => {
   const engine = setup({ stage: 2 });
   const e = engine.state.enemy;
   castCard(engine, 'silence');
@@ -171,7 +171,7 @@ test('「黙れ」の先行入力: 構え中に中断可能技の詠唱が始ま
   assert.equal(engine.state.player.silenceReady, null);
 });
 
-test('「黙れ」の構えは時間で切れる', () => {
+test('「黙せよ」の構えは時間で切れる', () => {
   const engine = setup({ stage: 2 });
   const e = engine.state.enemy;
   castCard(engine, 'silence');
@@ -225,4 +225,21 @@ test('難易度でタイムラインのギミックが増減する', () => {
   assert.deepEqual(resolveTimeline(tl, 0), ['a']);
   assert.deepEqual(resolveTimeline(tl, 1), ['a', 'b']);
   assert.deepEqual(resolveTimeline(tl, 3), ['a', 'b', 'c']);
+});
+
+test('撃破するとステージの評価が記録され、再挑戦回数が通しの評価に反映される', () => {
+  const engine = createEngine({ difficulty: 'normal', rng: mulberry32(1) });
+  engine.startRun();
+  engine.state.enemy.gapLeft = Infinity;
+  engine.state.enemy.hp = 1;
+  castCard(engine, 0);
+  const r = engine.state.result;
+  assert.equal(r.win, true);
+  assert.ok(['S', 'A', 'B', 'C'].includes(r.rank));
+  assert.equal(engine.state.runResults[0], r);
+  assert.equal(r.stats.casts, 1);
+  engine.retryStage();
+  assert.equal(engine.state.stageStats.casts, 0);
+  assert.equal(engine.state.stats.casts, 1);
+  assert.equal(engine.runSummary().retries, 1);
 });
