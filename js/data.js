@@ -152,6 +152,22 @@
 
   const PLAYER = { maxHp: 100, maxMp: 100, startMp: 60 };
 
+  /*
+   * 攻撃呪文の手札 (3枠: ★ / ★★ / ★★★)
+   * weatherAfter: 使われないまま他の呪文をこの回数唱えると風化して入れ替わる
+   * elementWeight: ドロー時の属性の重み (敵の弱点 / 等倍 / 耐性)
+   * usableBoost: 手札に「撃てて有効」なカードが他にないとき、該当候補の重みを何倍にするか
+   * lowMpTier3: MP不足時に★★★枠へ★★★が来る確率 (残りは★★)
+   * redraw: Tab で攻撃3枠を引き直すコスト
+   */
+  const HAND = {
+    weatherAfter: 5,
+    elementWeight: { weak: 2, neutral: 1.5, resist: 0.5 },
+    usableBoost: 4,
+    lowMpTier3: 0.5,
+    redraw: { mp: 5, cd: 8 },
+  };
+
   return { DIFFICULTIES, DIFFICULTY_ORDER, ELEMENTS, ATTACKS, SKILLS, SPELLS: [...ATTACKS, ...SKILLS],
-    ABILITY_TYPES, ENRAGE, ENEMIES, PLAYER };
+    ABILITY_TYPES, ENRAGE, ENEMIES, PLAYER, HAND };
 });

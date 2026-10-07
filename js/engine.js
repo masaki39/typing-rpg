@@ -12,7 +12,9 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (Romaji, Battle, GameData) {
   'use strict';
 
-  const { ATTACKS, SKILLS, SPELLS, ENEMIES, DIFFICULTIES, ENRAGE, PLAYER } = GameData;
+  const { ATTACKS, SKILLS, SPELLS, ENEMIES, DIFFICULTIES, ENRAGE, PLAYER, HAND } = GameData;
+
+  const ATTACK_COST = { 3: ATTACKS.find((s) => s.tier === 3).mp };
 
   for (const s of SPELLS) {
     s.romaji = Romaji.toRomaji(s.kana);
@@ -56,6 +58,7 @@
       player: null,
       enemy: null,
       attackHand: [],
+      attackAge: [0, 0, 0], // 各枠のカードが使われずに過ぎた詠唱回数
       cooldowns: {},
       cast: null,
       combo: 0,
@@ -76,8 +79,79 @@
       return state.player && Battle.canCast(spell, state.player.mp, state.cooldowns[spell.id]);
     }
 
-    function drawAttack(tier, exclude) {
-      return pick(ATTACKS.filter((s) => s.tier === tier && !exclude.includes(s)));
+    /** 撃てて (MP足りる) 有効 (耐性でない) か */
+    function isUsefulAttack(spell) {
+      const mp = state.player ? state.player.mp : 0;
+      return Battle.canCast(spell, mp) && Battle.elementMultiplier(spell.element, state.enemy.element) >= 1;
+    }
+
+    /**
+     * 攻撃カードを1枚引く。敵の弱点属性に寄せ、耐性属性は出にくくする。
+     * 手札の他のカードに撃てて有効なものがなければ、そうなる候補をさらに出やすくする
+     * (確定ではなく偏りなので、外れの手札もたまに来る)。
+     */
+    function drawAttack(slot, others) {
+      const p = state.player;
+      let tier = slot + 1;
+      if (tier === 3 && p.mp < ATTACK_COST[3] && rng() >= HAND.lowMpTier3) tier = 2;
+      const candidates = ATTACKS.filter((s) => s.tier === tier && !others.includes(s));
+      const needUseful = !others.some(isUsefulAttack);
+      const weights = candidates.map((s) => {
+        const mult = Battle.elementMultiplier(s.element, state.enemy.element);
+        const w = HAND.elementWeight[mult > 1 ? 'weak' : mult < 1 ? 'resist' : 'neutral'];
+        return w * (needUseful && isUsefulAttack(s) ? HAND.usableBoost : 1);
+      });
+      let r = rng() * weights.reduce((a, b) => a + b, 0);
+      for (let i = 0; i < candidates.length; i++) {
+        r -= weights[i];
+        if (r < 0) return candidates[i];
+      }
+      return candidates[candidates.length - 1];
+    }
+
+    function replaceAttack(slot) {
+      const others = state.attackHand.filter((_, i) => i !== slot);
+      state.attackHand[slot] = drawAttack(slot, [...others, state.attackHand[slot]]);
+      state.attackAge[slot] = 0;
+    }
+
+    function dealAttackHand() {
+      state.attackHand = [];
+      for (const slot of [0, 1, 2]) state.attackHand.push(drawAttack(slot, state.attackHand));
+      state.attackAge = [0, 0, 0];
+    }
+
+    /** 使われない攻撃カードを風化させる (呪文を唱えるたびに呼ぶ) */
+    function weatherAttacks(usedSlot) {
+      for (let i = 0; i < state.attackHand.length; i++) {
+        if (i === usedSlot) continue;
+        state.attackAge[i]++;
+        if (state.attackAge[i] >= HAND.weatherAfter) {
+          const old = state.attackHand[i];
+          replaceAttack(i);
+          log(`「${old.name}」は風化して消えた。`);
+          emit('weathered', { slot: i, from: old, to: state.attackHand[i] });
+        }
+      }
+    }
+
+    function canRedraw() {
+      return state.phase === 'battle' && state.player.mp >= HAND.redraw.mp && !(state.cooldowns.redraw > 0);
+    }
+
+    /** 攻撃3枠を引き直す (MP とリキャストを消費、詠唱中なら破棄) */
+    function redraw() {
+      if (!canRedraw()) return false;
+      state.player.mp -= HAND.redraw.mp;
+      state.cooldowns.redraw = HAND.redraw.cd * 1000;
+      const old = state.attackHand;
+      state.attackHand = [];
+      for (const slot of [0, 1, 2]) state.attackHand.push(drawAttack(slot, [...state.attackHand, old[slot]]));
+      state.attackAge = [0, 0, 0];
+      resetCast();
+      log('手札を引き直した。');
+      emit('redraw');
+      return true;
     }
 
     function resetCast() {
@@ -124,8 +198,7 @@
       };
       state.cooldowns = {};
       state.combo = 0;
-      state.attackHand = [];
-      for (const tier of [1, 2, 3]) state.attackHand.push(drawAttack(tier, state.attackHand));
+      dealAttackHand();
       resetCast();
       state.result = null;
       state.lastHit = null;
@@ -331,9 +404,7 @@
           const tag = r.elementMult > 1 ? 'weak' : r.elementMult < 1 ? 'resist' : '';
           emit('enemyHit', { amount: r.damage, tag, element: spell.element });
           log(`「${spell.name}」！ ${e.name}に${r.damage}ダメージ${tag === 'weak' ? '（弱点）' : ''}`);
-          const slot = index;
-          const others = state.attackHand.filter((_, i) => i !== slot);
-          state.attackHand[slot] = drawAttack(spell.tier, [...others, spell]);
+          replaceAttack(index);
           break;
         }
         case 'heal': {
@@ -382,6 +453,7 @@
           log(`「${spell.name}」！ 魔力が高まった。`);
           break;
       }
+      if (e.hp > 0) weatherAttacks(spell.role === 'attack' ? index : -1);
       resetCast();
 
       if (e.hp <= 0) win();
@@ -412,7 +484,7 @@
 
     return {
       state, cards, isEnabled, upcoming, setDifficulty, startRun, startStage, retryStage, nextStage,
-      tick, key, cancelCast, drain, diff,
+      tick, key, cancelCast, drain, diff, redraw, canRedraw, isUsefulAttack,
     };
   }
 

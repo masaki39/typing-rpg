@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { createEngine, mulberry32 } = require('../js/engine.js');
 const { ENEMIES } = require('../js/data.js');
+const Battle = require('../js/battle.js');
 
 /** 盾で受けたい大技 (バスター、または強力な全体攻撃) */
 const isBig = (ab) => ab.type === 'buster' || (ab.type === 'raidwide' && ab.damage >= 40);
@@ -76,12 +77,18 @@ export function properPolicy(engine, { keyMs, reaction }) {
   if (!p.empower && p.mp >= 55 && ok(id('empower'))) return id('empower');
 
   const reserve = 26; // 障壁 + 回復ぶんは残す
-  for (const i of [2, 1, 0]) {
-    const s = list[i];
-    if (!ok(i)) continue;
-    if (s.mp && p.mp - s.mp < reserve) continue;
-    const safe = p.barrier || typeMs(i) < left;
-    if (safe) return i;
+  const resisted = (i) => Battle.elementMultiplier(list[i].element, e.element) < 1;
+  // 撃てて有効な攻撃カードが1枚もなければ引き直す
+  if (![0, 1, 2].some((i) => ok(i) && !resisted(i)) && engine.canRedraw()) return 'redraw';
+  // 人間と同じく耐性属性はなるべく避ける (他に撃てるものがなければ使う)
+  for (const avoidResist of [true, false]) {
+    for (const i of [2, 1, 0]) {
+      const s = list[i];
+      if (!ok(i) || (avoidResist && resisted(i))) continue;
+      if (s.mp && p.mp - s.mp < reserve) continue;
+      const safe = p.barrier || typeMs(i) < left;
+      if (safe) return i;
+    }
   }
   return 0;
 }
@@ -107,7 +114,7 @@ export const BOTS = {
 };
 
 /** 1ステージを bot で戦う */
-export function runStage({ difficulty, stage, bot, seed = 1, reaction = 300, maxMs = 600000, trace = null }) {
+export function runStage({ difficulty, stage, bot, seed = 1, reaction = 300, maxMs = 600000, trace = null, onDecision = null }) {
   const { policy, kps, missRate } = BOTS[bot];
   const rng = mulberry32(seed);
   const engine = createEngine({ difficulty, rng: mulberry32(seed * 7919) });
@@ -125,8 +132,10 @@ export function runStage({ difficulty, stage, bot, seed = 1, reaction = 300, max
   };
 
   while (engine.state.phase === 'battle' && elapsed < maxMs) {
+    if (onDecision) onDecision(engine);
     const choice = policy(engine, { keyMs, reaction });
     if (choice == null) { wait(100); continue; }
+    if (choice === 'redraw') { wait(reaction); engine.redraw(); continue; }
     wait(reaction);
     if (engine.state.phase !== 'battle') break;
     if (!engine.isEnabled(engine.cards()[choice])) continue;
