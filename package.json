@@ -4,6 +4,7 @@
   "private": true,
   "description": "呪文詠唱タイピングRPG (静的サイト / 依存ゼロ)",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "simulate": "node tools/simulate.mjs"
   }
 }

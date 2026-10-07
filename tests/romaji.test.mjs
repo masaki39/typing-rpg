@@ -125,3 +125,12 @@ test('全呪文が標準綴りで詠唱できる', () => {
     assert.ok(accepts(s.kana, romaji), `${s.name}: ${romaji}`);
   }
 });
+
+test('どの呪文の綴りも他の呪文の綴りの途中で完成しない', () => {
+  const all = SPELLS.map((s) => ({ name: s.name, romaji: toRomaji(s.kana) }));
+  for (const a of all) {
+    for (const b of all) {
+      if (a !== b) assert.ok(!b.romaji.startsWith(a.romaji), `${a.name} / ${b.name}`);
+    }
+  }
+});
