@@ -725,20 +725,6 @@
       if (!ready()) return;
       arp([784, 1175], 0.06, { type: 'triangle', dur: 0.06, d: 0.08, s: 0.4, r: 0.15, g: 0.06, wet: 0.3 });
     },
-    /** 札の引き直し: 紙をめくる 3 連 */
-    redraw() {
-      if (!ready()) return;
-      const t = now();
-      for (let i = 0; i < 3; i++) noise(N.S, { t: t + i * 0.05, ft: 'bandpass', f: 2200 + i * 600, fEnd: 5000, q: 1.2, dec: 0.07, a: 0.01, g: 0.1 });
-    },
-    /** 札の風化 (崩れる): 細かなパチパチ + 沈む音 */
-    weather() {
-      if (!ready()) return;
-      const t = now();
-      for (let i = 0; i < 6; i++) noise(N.S, { t: t + rand() * 0.25, ft: 'bandpass', f: 1500 + rand() * 2500, q: 2, dec: 0.03, g: 0.08 });
-      note(N.S, { t, f: 420, slide: 140, type: 'triangle', dur: 0.3, d: 0.1, s: 0.5, r: 0.1, g: 0.03, lp: 1200 });
-      noise(N.S, { t, ft: 'lowpass', f: 1200, fEnd: 200, dec: 0.35, g: 0.04, a: 0.03 });
-    },
     /** 呪文の詠唱完了。tier 1〜3 で段階的に豪華になる */
     complete(tier = 1) {
       if (!ready()) return;

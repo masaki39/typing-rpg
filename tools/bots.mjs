@@ -95,8 +95,6 @@ export function properPolicy(engine, { keyMs, reaction }) {
   if (!p.empower && p.mp >= 55 && ok(id('empower'))) return id('empower');
 
   const reserve = 26; // 盾 + 回復ぶんは残す
-  // 撃てる攻撃カードが1枚もなければ引き直す
-  if (![0, 1, 2].some((i) => ok(i)) && engine.canRedraw()) return 'redraw';
   for (const i of [2, 1, 0]) {
     const s = list[i];
     if (!ok(i)) continue;
@@ -153,11 +151,6 @@ export function runStage({
     if (onDecision) onDecision(engine);
     const choice = policy(engine, { keyMs, reaction });
     if (choice == null) { wait(100); continue; }
-    if (choice === 'redraw') {
-      wait(reaction);
-      if (engine.redraw() && onKey) onKey('<redraw>');
-      continue;
-    }
     wait(reaction);
     if (engine.state.phase !== 'battle') break;
     if (!engine.isEnabled(engine.cards()[choice])) continue;

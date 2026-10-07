@@ -34,22 +34,6 @@ test('使った攻撃カードの枠だけが入れ替わり、他の枠はそ�
   assert.equal(s.attackHand[2], c);
 });
 
-test('引き直し: MP とリキャストを消費して攻撃3枠を入れ替える', () => {
-  const engine = setup();
-  const s = engine.state;
-  s.player.mp = 50;
-  const before = [...s.attackHand];
-  for (const ch of before[2].romaji.slice(0, 3)) engine.key(ch);
-  assert.equal(engine.redraw(), true);
-  assert.equal(s.player.mp, 50 - HAND.redraw.mp);
-  assert.equal(s.cast.started, false, '詠唱中の呪文は破棄');
-  s.attackHand.forEach((card, i) => assert.notEqual(card, before[i], `枠${i}は別のカード`));
-  assert.equal(engine.redraw(), false, 'リキャスト中は不可');
-  engine.tick(HAND.redraw.cd * 1000);
-  s.player.mp = HAND.redraw.mp - 1;
-  assert.equal(engine.redraw(), false, 'MP不足では不可');
-});
-
 test('手札の他の呪文と頭のかなが同じ攻撃カードは出にくい', () => {
   let same = 0;
   let n = 0;
@@ -90,8 +74,8 @@ test('MP不足のときは★★★枠に★★が来ることがある', () => 
   let tier2 = 0;
   for (let seed = 1; seed <= 200; seed++) {
     const engine = setup({ seed });
-    engine.state.player.mp = HAND.redraw.mp; // 引き直し後の MP は 0
-    engine.redraw();
+    engine.state.player.mp = 40; // ★★★を撃つと MP 0 になり、その枠の次のカードを引く
+    castCard(engine, 2);
     if (engine.state.attackHand[2].tier === 2) tier2++;
   }
   assert.ok(tier2 > 50 && tier2 < 150, `${tier2}/200`);

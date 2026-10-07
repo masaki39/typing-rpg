@@ -2,7 +2,6 @@
  * 指別の打鍵負荷: node tools/finger-load.mjs [data.js のパス]
  * 1) 呪文プール全体 (各呪文の推奨ローマ字を1回ずつ) の指別打鍵数
  * 2) 実プレイ相当 (Normal・proper bot が実際に正しく打ったキー) の指別打鍵数
- * 3) 操作キーの割り当て
  * を表示する。指の割り当ては一般的なタッチタイピング (JIS/US 配列のホームポジション)。
  */
 import { createRequire } from 'node:module';
@@ -16,8 +15,6 @@ const KEYMAP = {
   左小指: '`1qaz', 左薬指: '2wsx', 左中指: '3edc', 左人差指: '45rtfgvb',
   右人差指: '67yuhjnm', 右中指: '8ik,', 右薬指: '9ol.', 右小指: "0-=p;/'[]",
 };
-// 操作キーの担当指
-const OP_FINGER = { Tab: '左小指', Escape: '左小指', Shift: '左小指', Space: '親指', Enter: '右小指', Backspace: '右小指' };
 const fingerOf = (ch) => FINGERS.find((f) => KEYMAP[f].includes(ch)) || '?';
 
 export function loadPool(dataPath) {
@@ -54,21 +51,17 @@ async function main() {
     // 実プレイ相当 (現在のデータのみ)
     const { runStage } = await import('./bots.mjs');
     const { ENEMIES } = require('../js/data.js');
-    const { HAND } = require('../js/data.js');
-    const redrawKey = (HAND.keys && HAND.keys.redraw) || 'Tab';
     let typed = '';
-    let redraws = 0;
     for (let stage = 0; stage < ENEMIES.length; stage++) {
       for (let seed = 1; seed <= 10; seed++) {
         runStage({
           difficulty: 'normal', stage, bot: 'proper', seed,
-          onKey: (ch) => { if (ch === '<redraw>') redraws++; else typed += ch; },
+          onKey: (ch) => { typed += ch; },
         });
       }
     }
     console.log(`[実プレイ相当 Normal・proper bot ${typed.length}打] ${table(fingerCounts(typed))}`);
     console.log(`  左小指のキー内訳: ${[...KEYMAP['左小指']].map((k) => `${k}=${[...typed].filter((c) => c === k).length}`).join(' ')}`);
-    console.log(`[操作キー] 引き直し=${redrawKey}(${OP_FINGER[redrawKey]}) ${redraws}回`);
   }
 }
 

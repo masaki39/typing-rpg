@@ -126,24 +126,6 @@
       for (const slot of [0, 1, 2]) state.attackHand.push(drawAttack(slot, state.attackHand));
     }
 
-    function canRedraw() {
-      return state.phase === 'battle' && state.player.mp >= HAND.redraw.mp && !(state.cooldowns.redraw > 0);
-    }
-
-    /** 攻撃3枠を引き直す (MP とリキャストを消費、詠唱中なら破棄) */
-    function redraw() {
-      if (!canRedraw()) return false;
-      state.player.mp -= HAND.redraw.mp;
-      state.cooldowns.redraw = HAND.redraw.cd * 1000;
-      const old = state.attackHand;
-      state.attackHand = [];
-      for (const slot of [0, 1, 2]) state.attackHand.push(drawAttack(slot, [...state.attackHand, old[slot]]));
-      resetCast();
-      log('手札を引き直した。');
-      emit('redraw');
-      return true;
-    }
-
     function resetCast() {
       const list = cards();
       state.cast = {
@@ -497,7 +479,7 @@
 
     return {
       state, cards, isEnabled, upcoming, setDifficulty, startRun, startStage, retryStage, nextStage,
-      tick, key, cancelCast, drain, diff, redraw, canRedraw, isUsefulAttack, runSummary,
+      tick, key, cancelCast, drain, diff, isUsefulAttack, runSummary,
     };
   }
 

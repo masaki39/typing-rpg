@@ -53,7 +53,7 @@ function load(globals = {}) {
 }
 
 const SFX = ['key', 'miss', 'cast', 'heal', 'warn', 'hurt', 'win', 'lose', 'interrupt', 'barrier', 'cleanse',
-  'buff', 'phase', 'select', 'confirm', 'redraw', 'weather', 'complete', 'combo', 'danger', 'pause'];
+  'buff', 'phase', 'select', 'confirm', 'complete', 'combo', 'danger', 'pause'];
 
 test('AudioContext が無い環境でも読み込め、全メソッドが例外を出さない', () => {
   const Sfx = load();

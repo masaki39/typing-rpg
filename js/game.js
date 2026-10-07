@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  const { ENEMIES, KINDS, DIFFICULTIES, DIFFICULTY_ORDER, ABILITY_TYPES, HAND } = window.GameData;
+  const { ENEMIES, KINDS, DIFFICULTIES, DIFFICULTY_ORDER, ABILITY_TYPES } = window.GameData;
   const { Battle, Sfx } = window;
   const Sprites = window.Sprites || { svg: () => '' };
 
@@ -71,7 +71,6 @@
     combo: $('stat-combo'), speed: $('stat-speed'), acc: $('stat-acc'), int: $('stat-int'),
     log: $('log'), hand: $('hand'), attackRow: $('attack-row'), skillRow: $('skill-row'),
     overlay: $('overlay'), overlayContent: $('overlay-content'), imeWarning: $('ime-warning'),
-    redrawTile: $('redraw-tile'), redrawCost: $('redraw-cost'), redrawCd: $('redraw-cd'),
     chant: $('chant'), chantName: $('chant-name'), chantCandidates: $('chant-candidates'),
     chantTyped: $('chant-typed'), chantRest: $('chant-rest'), chantKana: $('chant-kana'),
     banner: $('banner'), bannerStage: $('banner-stage'), bannerName: $('banner-name'), bannerCall: $('banner-call'),
@@ -252,25 +251,6 @@
     dom.chantKana.innerHTML = `<span class="done">${escapeHtml(m.text.slice(0, m.pos))}</span>${escapeHtml(m.text.slice(m.pos))}`;
   }
 
-  function renderRedraw() {
-    const cd = state.cooldowns.redraw || 0;
-    const ready = engine.canRedraw();
-    dom.redrawTile.classList.toggle('disabled', !ready);
-    dom.redrawCost.textContent = `MP${HAND.redraw.mp} / ${HAND.redraw.cd}s`;
-    dom.redrawCd.textContent = cd > 0 ? fmtSec(cd) : !ready && state.phase === 'battle' ? 'MP不足' : '';
-    dom.redrawTile.querySelector('.cd-veil').style.setProperty('--cd', cd > 0 ? cd / (HAND.redraw.cd * 1000) : 0);
-  }
-
-  function tryRedraw() {
-    if (engine.redraw()) {
-      flushEvents();
-      renderFrame();
-    } else {
-      retrigger(dom.redrawTile, 'deny');
-      sfx('miss');
-    }
-  }
-
   /** リキャスト・MP不足の表示 (毎フレーム) */
   function renderCooldowns() {
     const list = engine.cards();
@@ -283,7 +263,6 @@
       n.veil.style.setProperty('--cd', cd > 0 ? cd / (spell.cd * 1000) : 0);
       n.cdText.textContent = cd > 0 ? fmtSec(cd) : !enabled ? 'MP不足' : '';
     });
-    renderRedraw();
   }
 
   // ---------- 描画 ----------
@@ -591,7 +570,6 @@
         </div>
         <ul class="rules">
           <li>上段の攻撃呪文は<strong>使った枠だけ</strong>入れ替わります。<strong>★で MP を貯めて★★★を撃つ</strong>のが基本の流れ。</li>
-          <li>撃てるカードがないときは <kbd>Space</kbd> で攻撃 3 枚を<strong>引き直し</strong>（MP 5・8 秒に 1 回）。</li>
           <li>下段の支援呪文 6 枚は常に並びます。MP とリキャスト（再使用までの時間）に注意。</li>
         </ul>`,
     },
@@ -614,7 +592,7 @@
         <table class="howto-table keys">
           <tr><td>ローマ字キー</td><td>詠唱</td></tr>
           <tr><td><kbd>Backspace</kbd></td><td>詠唱を破棄</td></tr>
-          <tr><td><kbd>Space</kbd></td><td>攻撃呪文を引き直す（戦闘中）／決定（メニュー）</td></tr>
+          <tr><td><kbd>Space</kbd></td><td>決定（メニュー）</td></tr>
           <tr><td><kbd>Esc</kbd></td><td>一時停止メニュー</td></tr>
         </table>
         <ul class="rules">
@@ -1006,11 +984,6 @@
           handDirty = true;
           break;
         }
-        case 'redraw':
-          cardNodes.slice(0, 3).forEach((n) => retrigger(n.node, 'renew', 700));
-          if (typeof Sfx.redraw === 'function') Sfx.redraw(); else sfx('key');
-          handDirty = true;
-          break;
         case 'enemyCast':
           if (ev.ability.type !== 'auto') sfx('warn');
           if (ev.ability.type !== 'auto') retrigger(dom.bossCast, 'appear', 500);
@@ -1126,7 +1099,6 @@
     }
     if (key === ' ') {
       e.preventDefault();
-      if (!e.repeat) tryRedraw();
     } else if (key === 'Backspace') {
       e.preventDefault();
       engine.cancelCast();
@@ -1147,7 +1119,7 @@
     const k = key.length === 1 ? key.toLowerCase() : key;
     const confirm = key === ' ' || key === 'Enter';
     if (confirm || key.startsWith('Arrow')) e.preventDefault();
-    // 戦闘中の Space (引き直し) を押し続けた勢いで結果画面を飛ばさないよう少し待つ
+    // 戦闘中のキーを押し続けた勢いで結果画面を飛ばさないよう少し待つ
     if (e.repeat && !key.startsWith('Arrow')) return;
     if (performance.now() - ui.overlayAt < 450 && ['stageClear', 'allClear', 'gameover'].includes(ui.screen)) return;
 
@@ -1233,11 +1205,6 @@
     }
   });
   window.addEventListener('resize', fitToScreen);
-
-  dom.redrawTile.addEventListener('click', (e) => {
-    e.currentTarget.blur();
-    if (ui.screen === 'battle') tryRedraw();
-  });
 
   dom.sound.addEventListener('click', (e) => {
     e.currentTarget.blur();

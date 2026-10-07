@@ -173,18 +173,15 @@
 
   /*
    * 攻撃呪文の手札 (3枠: ★ / ★★ / ★★★)
-   * 使った枠だけが入れ替わる (使わないカードは残り続ける。詰まったら引き直し)
+   * 使った枠だけが入れ替わる (使わないカードは残り続ける。★枠は MP 0 で撃てるので詰まらない)
    * usableBoost: 手札に撃てる (MPが足りる) カードが他にないとき、撃てる候補の重みを何倍にするか
    * sameHeadWeight: 手札の他の呪文と頭のかなが同じ候補の重み (打ち始めで候補が絞れるように)
    * lowMpTier3: MP不足時に★★★枠へ★★★が来る確率 (残りは★★)
-   * redraw: 攻撃3枠を引き直すコスト / keys: 操作キー (左手小指を避け、入力と衝突しないキー)
    */
   const HAND = {
     usableBoost: 4,
     sameHeadWeight: 0.15,
     lowMpTier3: 0.5,
-    redraw: { mp: 5, cd: 8 },
-    keys: { redraw: 'Space', cancel: 'Backspace' },
   };
 
   return { DIFFICULTIES, DIFFICULTY_ORDER, KINDS, ATTACKS, SKILLS, SPELLS: [...ATTACKS, ...SKILLS],

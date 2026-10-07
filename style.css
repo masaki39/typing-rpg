@@ -400,7 +400,6 @@ kbd {
 
 /* ---------- 手札 ---------- */
 .hand { margin-top: 10px; }
-.attack-line { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 10px; }
 .attack-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .hotbar { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
 
@@ -477,7 +476,7 @@ kbd {
   background: conic-gradient(rgba(4, 6, 12, 0.78) calc(var(--cd) * 360deg), rgba(4, 6, 12, 0.5) 0);
   visibility: hidden;
 }
-.card.disabled .cd-veil, .redraw-tile.disabled .cd-veil { visibility: visible; }
+.card.disabled .cd-veil { visibility: visible; }
 .card.disabled { filter: grayscale(0.85) brightness(0.85); }
 .cd-text { font-weight: 700; font-size: 1.05rem; text-shadow: 0 1px 3px #000; }
 
@@ -488,20 +487,6 @@ kbd {
   100% { opacity: 1; filter: none; }
 }
 
-/* 引き直し */
-.redraw-tile {
-  position: relative; height: 118px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  border-radius: 9px; border: 1px dashed var(--line-strong);
-  background: linear-gradient(180deg, #141a2a, #0e121e);
-  color: var(--text); font-family: inherit; cursor: pointer; overflow: hidden;
-  outline: 2px solid transparent;
-}
-.redraw-icon { font-size: 1.5rem; line-height: 1; color: var(--gold); }
-.redraw-label { font-size: 0.75rem; font-weight: 700; }
-.redraw-cost { font-size: 0.64rem; color: var(--text-dim); }
-.redraw-tile.disabled { filter: grayscale(0.9) brightness(0.75); cursor: default; }
-.redraw-tile.deny { animation: deny 0.35s; }
 @keyframes deny { 0% { outline-color: var(--bad); } 100% { outline-color: transparent; } }
 
 .help { color: var(--text-faint); font-size: 0.74rem; text-align: center; margin: 10px 0 0; }
