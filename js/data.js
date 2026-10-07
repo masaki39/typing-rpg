@@ -1,5 +1,5 @@
 /*
- * ゲームデータ (難易度・呪文・敵とタイムライン・属性)
+ * ゲームデータ (難易度・呪文・敵とタイムライン)
  * ブラウザでは window.GameData、Node では module.exports。
  */
 (function (root, factory) {
@@ -17,69 +17,86 @@
   const DIFFICULTIES = {
     easy: { label: 'Easy', desc: '敵の詠唱が遅く、被ダメージ控えめ。一部ギミックなし。', level: 0, speedGuide: { p50: 1.7, p80: 1.9 },
       castMult: 1.4, damageMult: 0.5, enrageMult: 1.6, enemyHpMult: 0.7, mpRegen: 2.0, showNext: true },
-    normal: { label: 'Normal', desc: '標準。ギミックに対応しないと勝てない。', level: 1, speedGuide: { p50: 4.1, p80: 4.9 },
+    normal: { label: 'Normal', desc: '標準。ギミックに対応しないと勝てない。', level: 1, speedGuide: { p50: 4.1, p80: 4.3 },
       castMult: 1.0, damageMult: 1.0, enrageMult: 1.0, enemyHpMult: 1.0, mpRegen: 1.3, showNext: true },
-    hard: { label: 'Hard', desc: '詠唱が速く被ダメ増。次の技は表示されない。', level: 2, speedGuide: { p50: 5.4, p80: 6.3 },
+    hard: { label: 'Hard', desc: '詠唱が速く被ダメ増。次の技は表示されない。', level: 2, speedGuide: { p50: 5.6, p80: 6.2 },
       castMult: 0.85, damageMult: 1.2, enrageMult: 0.95, enemyHpMult: 1.0, mpRegen: 1.1, showNext: false },
-    savage: { label: 'Savage', desc: '零式。追加ギミックあり。タイムラインを覚えて挑め。', level: 3, speedGuide: { p50: 7.5, p80: 8.7 },
+    savage: { label: 'Savage', desc: '零式。追加ギミックあり。タイムラインを覚えて挑め。', level: 3, speedGuide: { p50: 7.6, p80: 8.7 },
       castMult: 0.8, damageMult: 1.22, enrageMult: 0.85, enemyHpMult: 1.2, mpRegen: 1.0, showNext: false },
   };
   const DIFFICULTY_ORDER = ['easy', 'normal', 'hard', 'savage'];
 
-  const ELEMENTS = {
-    fire: { name: '火', icon: '🔥' },
-    water: { name: '水', icon: '💧' },
-    thunder: { name: '雷', icon: '⚡' },
-    ice: { name: '氷', icon: '❄️' },
-    heal: { name: '癒', icon: '✨' },
-    guard: { name: '守', icon: '🛡️' },
-    silence: { name: '封', icon: '🤐' },
-    pure: { name: '浄', icon: '💠' },
-    buff: { name: '強', icon: '🔮' },
+  // 呪文の種類 (カードの色分けと表示名)
+  const KINDS = {
+    attack: { name: '攻撃', icon: '✦' },
+    heal: { name: '回復', icon: '✚' },
+    guard: { name: '防御', icon: '◆' },
+    silence: { name: '中断', icon: '✕' },
+    pure: { name: '浄化', icon: '❖' },
+    buff: { name: '強化', icon: '▲' },
   };
 
   // 攻撃呪文の MP: ★は消費なしで MP 回復、★★★は大量消費
   const ATTACK_MP = { 1: { mp: 0, mpGain: 10 }, 2: { mp: 18, mpGain: 0 }, 3: { mp: 40, mpGain: 0 } };
 
+  /*
+   * 攻撃呪文の語彙。威力は打鍵数から自動計算 (長いほど強い)。
+   * 左手小指 (a/q/z) の負荷を下げるため、あ段が少なく z を含まない語を選んでいる。
+   * 支援呪文 (ち/さ/ま/も/き/み) と頭のかなが重ならないようにし、
+   * どの呪文のローマ字も他の呪文の途中で完成しないこと (テストで検査)。
+   */
   const ATTACKS = [
-    ['fire', 1, '火の粉', 'ひのこ'],
-    ['fire', 2, '燃え盛る炎', 'もえさかるほのお'],
-    ['fire', 3, '紅蓮の業火よ焼き尽くせ', 'ぐれんのごうかよやきつくせ'],
-    ['water', 1, '水弾', 'すいだん'],
-    ['water', 2, '渦巻く激流', 'うずまくげきりゅう'],
-    ['water', 3, '深淵の大海よ全てを呑め', 'しんえんのたいかいよすべてをのめ'],
-    ['thunder', 1, '稲妻', 'いなずま'],
-    ['thunder', 2, '轟く雷鳴', 'とどろくらいめい'],
-    ['thunder', 3, '天を裂く雷神の鉄槌', 'てんをさくらいじんのてっつい'],
-    ['ice', 1, '氷柱', 'つらら'],
-    ['ice', 2, '凍える吹雪', 'こごえるふぶき'],
-    ['ice', 3, '永久凍土の氷棺に眠れ', 'えいきゅうとうどのひょうかんにねむれ'],
-  ].map(([element, tier, name, kana]) => ({
-    id: `${element}${tier}`, name, kana, element, role: 'attack', tier, ...ATTACK_MP[tier],
+    [1, '火の粉', 'ひのこ'],
+    [1, '炎', 'ほのお'],
+    [1, '氷', 'こおり'],
+    [1, '吹雪', 'ふぶき'],
+    [1, '息吹', 'いぶき'],
+    [1, '剣', 'つるぎ'],
+    [1, '雲切り', 'くもきり'],
+    [1, '夕立', 'ゆうだち'],
+    [1, '鬼火', 'おにび'],
+    [1, '熱風', 'ねっぷう'],
+    [2, '命の焔', 'いのちのほむら'],
+    [2, '霜降る森', 'しもふるもり'],
+    [2, '轟く雷鳴', 'とどろくらいめい'],
+    [2, 'うねる激流', 'うねるげきりゅう'],
+    [2, '光の矛', 'ひかりのほこ'],
+    [2, '星降る夜', 'ほしふるよる'],
+    [2, '黒き閃光', 'くろきせんこう'],
+    [2, '吹き荒れる疾風', 'ふきあれるしっぷう'],
+    [3, '紅蓮の業火よ焼き尽くせ', 'ぐれんのごうかよやきつくせ'],
+    [3, '天を裂く雷神の鉄槌', 'てんをさくらいじんのてっつい'],
+    [3, '永久凍土の氷棺に眠れ', 'えいきゅうとうどのひょうかんにねむれ'],
+    [3, '深淵の大海よ全てを呑め', 'しんえんのたいかいよすべてをのめ'],
+    [3, '冥府の門よ今開け', 'めいふのもんよいまひらけ'],
+    [3, '常しえの闇へ消え失せろ', 'とこしえのやみへきえうせろ'],
+    [3, '滅びの歌よ響き渡れ', 'ほろびのうたよひびきわたれ'],
+  ].map(([tier, name, kana], i) => ({
+    id: `atk${tier}-${i}`, name, kana, kind: 'attack', role: 'attack', tier, ...ATTACK_MP[tier],
   }));
 
   // 常に並ぶ支援呪文 (cd: リキャスト秒)
   const SKILLS = [
-    { id: 'heal', name: '治癒の光', kana: 'ちゆのひかり', element: 'heal', role: 'heal', mp: 14, cd: 0,
+    { id: 'heal', name: '治癒の光', kana: 'ちゆのひかり', kind: 'heal', role: 'heal', mp: 14, cd: 0,
       amount: 30, desc: 'HPを即時回復' },
-    { id: 'regen', name: '再生の祈り', kana: 'さいせいのいのり', element: 'heal', role: 'regen', mp: 14, cd: 20,
+    { id: 'regen', name: '再生の祈り', kana: 'さいせいのいのり', kind: 'heal', role: 'regen', mp: 14, cd: 20,
       perSec: 4, duration: 12, desc: '12秒間HPを継続回復' },
-    { id: 'barrier', name: '守りの盾', kana: 'まもりのたて', element: 'guard', role: 'barrier', mp: 10, cd: 12,
+    { id: 'barrier', name: '守りの壁', kana: 'まもりのへき', kind: 'guard', role: 'barrier', mp: 10, cd: 12,
       reduce: 0.75, duration: 10, desc: '大技1回を75%軽減(最大10秒)' },
-    { id: 'silence', name: '黙れ', kana: 'だまれ', element: 'silence', role: 'interrupt', mp: 5, cd: 10,
+    { id: 'silence', name: '黙せよ', kana: 'もくせよ', kind: 'silence', role: 'interrupt', mp: 5, cd: 10,
       ready: 5, desc: '中断可能技を止める・先に唱えると構え5秒' },
-    { id: 'cleanse', name: '浄化', kana: 'じょうか', element: 'pure', role: 'cleanse', mp: 8, cd: 8,
+    { id: 'cleanse', name: '清め', kana: 'きよめ', kind: 'pure', role: 'cleanse', mp: 8, cd: 8,
       ward: 6, desc: 'DoT解除＋6秒間 DoTを防ぐ加護' },
-    { id: 'empower', name: '増幅', kana: 'ぞうふく', element: 'buff', role: 'buff', mp: 10, cd: 25,
+    { id: 'empower', name: '漲れ', kana: 'みなぎれ', kind: 'buff', role: 'buff', mp: 10, cd: 25,
       mult: 1.6, desc: '次の攻撃呪文の威力1.6倍' },
   ];
 
   const ABILITY_TYPES = {
     auto: { label: '通常攻撃', hint: '' },
     raidwide: { label: '全体攻撃', hint: '回復の準備を' },
-    buster: { label: 'タンクバスター', hint: '障壁で軽減せよ！' },
-    interruptible: { label: '中断可能', hint: '「黙れ」で中断せよ！（先行入力可）' },
-    dot: { label: '継続ダメージ', hint: '着弾前の「浄化」で防げる' },
+    buster: { label: 'タンクバスター', hint: '「守りの壁」で軽減せよ！' },
+    interruptible: { label: '中断可能', hint: '「黙せよ」で中断せよ！（先行入力可）' },
+    dot: { label: '継続ダメージ', hint: '着弾前の「清め」で防げる' },
     enrage: { label: '時間切れ', hint: '倒しきれなかった…' },
   };
 
@@ -91,7 +108,7 @@
    */
   const ENEMIES = [
     {
-      id: 'slime', name: 'アクアスライム', sprite: '💧', element: 'water', maxHp: 360, enrage: 75, gap: 1.6,
+      id: 'slime', name: 'アクアスライム', sprite: '💧', maxHp: 360, enrage: 75, gap: 1.6,
       text: '水の魔物。全体攻撃と継続ダメージに慣れよう。',
       abilities: {
         tackle: { name: '体当たり', type: 'auto', cast: 2.0, damage: 5 },
@@ -103,8 +120,8 @@
       ],
     },
     {
-      id: 'salamander', name: 'サラマンダー', sprite: '🦎', element: 'fire', maxHp: 500, enrage: 90, gap: 1.5,
-      text: '炎の大トカゲ。「灼熱の牙」は障壁なしでは致命傷。',
+      id: 'salamander', name: 'サラマンダー', sprite: '🦎', maxHp: 500, enrage: 90, gap: 1.5,
+      text: '炎の大トカゲ。「灼熱の牙」は守りの壁なしでは致命傷。',
       abilities: {
         claw: { name: '爪撃', type: 'auto', cast: 2.0, damage: 6 },
         fang: { name: '灼熱の牙', type: 'buster', cast: 5.0, damage: 110 },
@@ -117,7 +134,7 @@
       ],
     },
     {
-      id: 'thunderbird', name: 'サンダーバード', sprite: '🦅', element: 'thunder', maxHp: 560, enrage: 100, gap: 1.4,
+      id: 'thunderbird', name: 'サンダーバード', sprite: '🦅', maxHp: 560, enrage: 100, gap: 1.4,
       text: '雷の怪鳥。「雷槌召喚」は中断しないと被ダメージ増加。',
       abilities: {
         peck: { name: 'ついばみ', type: 'auto', cast: 1.8, damage: 6 },
@@ -133,7 +150,7 @@
       ],
     },
     {
-      id: 'dragon', name: '氷の魔竜', sprite: '🐉', element: 'ice', maxHp: 900, enrage: 170, gap: 1.4,
+      id: 'dragon', name: '氷の魔竜', sprite: '🐉', maxHp: 900, enrage: 170, gap: 1.4,
       text: '最終ボス。3フェーズ制。後半は大技「絶対零度」が来る。',
       abilities: {
         bite: { name: '噛みつき', type: 'auto', cast: 2.0, damage: 7 },
@@ -157,19 +174,20 @@
   /*
    * 攻撃呪文の手札 (3枠: ★ / ★★ / ★★★)
    * weatherAfter: 使われないまま他の呪文をこの回数唱えると風化して入れ替わる
-   * elementWeight: ドロー時の属性の重み (敵の弱点 / 等倍 / 耐性)
-   * usableBoost: 手札に「撃てて有効」なカードが他にないとき、該当候補の重みを何倍にするか
+   * usableBoost: 手札に撃てる (MPが足りる) カードが他にないとき、撃てる候補の重みを何倍にするか
+   * sameHeadWeight: 手札の他の呪文と頭のかなが同じ候補の重み (打ち始めで候補が絞れるように)
    * lowMpTier3: MP不足時に★★★枠へ★★★が来る確率 (残りは★★)
-   * redraw: Tab で攻撃3枠を引き直すコスト
+   * redraw: 攻撃3枠を引き直すコスト / keys: 操作キー (左手小指を避け、入力と衝突しないキー)
    */
   const HAND = {
     weatherAfter: 5,
-    elementWeight: { weak: 2, neutral: 1.5, resist: 0.5 },
     usableBoost: 4,
+    sameHeadWeight: 0.15,
     lowMpTier3: 0.5,
     redraw: { mp: 5, cd: 8 },
+    keys: { redraw: 'Space', cancel: 'Backspace' },
   };
 
-  return { DIFFICULTIES, DIFFICULTY_ORDER, ELEMENTS, ATTACKS, SKILLS, SPELLS: [...ATTACKS, ...SKILLS],
+  return { DIFFICULTIES, DIFFICULTY_ORDER, KINDS, ATTACKS, SKILLS, SPELLS: [...ATTACKS, ...SKILLS],
     ABILITY_TYPES, ENRAGE, ENEMIES, PLAYER, HAND };
 });

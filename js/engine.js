@@ -79,16 +79,15 @@
       return state.player && Battle.canCast(spell, state.player.mp, state.cooldowns[spell.id]);
     }
 
-    /** 撃てて (MP足りる) 有効 (耐性でない) か */
+    /** 今の MP で撃てるか */
     function isUsefulAttack(spell) {
       const mp = state.player ? state.player.mp : 0;
-      return Battle.canCast(spell, mp) && Battle.elementMultiplier(spell.element, state.enemy.element) >= 1;
+      return Battle.canCast(spell, mp);
     }
 
     /**
-     * 攻撃カードを1枚引く。敵の弱点属性に寄せ、耐性属性は出にくくする。
-     * 手札の他のカードに撃てて有効なものがなければ、そうなる候補をさらに出やすくする
-     * (確定ではなく偏りなので、外れの手札もたまに来る)。
+     * 攻撃カードを1枚引く。手札の他の攻撃カードに撃てるものがなければ、撃てる候補を出やすくする
+     * (確定ではなく偏り)。手札の他の呪文と頭のかなが同じ候補は出にくくする。
      */
     function drawAttack(slot, others) {
       const p = state.player;
@@ -96,9 +95,9 @@
       if (tier === 3 && p.mp < ATTACK_COST[3] && rng() >= HAND.lowMpTier3) tier = 2;
       const candidates = ATTACKS.filter((s) => s.tier === tier && !others.includes(s));
       const needUseful = !others.some(isUsefulAttack);
+      const heads = new Set([...others, ...SKILLS].map((s) => s.kana[0]));
       const weights = candidates.map((s) => {
-        const mult = Battle.elementMultiplier(s.element, state.enemy.element);
-        const w = HAND.elementWeight[mult > 1 ? 'weak' : mult < 1 ? 'resist' : 'neutral'];
+        const w = heads.has(s.kana[0]) ? HAND.sameHeadWeight : 1;
         return w * (needUseful && isUsefulAttack(s) ? HAND.usableBoost : 1);
       });
       let r = rng() * weights.reduce((a, b) => a + b, 0);
@@ -185,7 +184,7 @@
         barrier: null, regen: null, dot: null, vuln: null, empower: null, ward: null, silenceReady: null,
       };
       state.enemy = {
-        def, name: def.name, element: def.element, hp: maxHp, maxHp,
+        def, name: def.name, hp: maxHp, maxHp,
         phaseIndex: 0,
         timelines: def.phases.map((p) => resolveTimeline(p.timeline, d.level)),
         timelineIndex: 0,
@@ -403,16 +402,15 @@
 
       switch (spell.role) {
         case 'attack': {
+          const empowered = !!p.empower;
           const r = Battle.computeDamage({
-            base: spell.value, spellElement: spell.element, enemyElement: e.element,
-            misses: c.misses, combo: state.combo, empower: p.empower ? p.empower.mult : 1,
+            base: spell.value, misses: c.misses, combo: state.combo, empower: empowered ? p.empower.mult : 1,
           });
           p.empower = null;
           e.hp = Math.max(0, e.hp - r.damage);
           state.stats.damage += r.damage;
-          const tag = r.elementMult > 1 ? 'weak' : r.elementMult < 1 ? 'resist' : '';
-          emit('enemyHit', { amount: r.damage, tag, element: spell.element });
-          log(`「${spell.name}」！ ${e.name}に${r.damage}ダメージ${tag === 'weak' ? '（弱点）' : ''}`);
+          emit('enemyHit', { amount: r.damage, tier: spell.tier, empowered });
+          log(`「${spell.name}」！ ${e.name}に${r.damage}ダメージ`);
           replaceAttack(index);
           break;
         }

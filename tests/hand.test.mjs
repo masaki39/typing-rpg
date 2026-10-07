@@ -4,8 +4,7 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { createEngine, mulberry32 } = require('../js/engine.js');
-const { HAND, ENEMIES } = require('../js/data.js');
-const Battle = require('../js/battle.js');
+const { HAND, ENEMIES, ATTACKS, SKILLS } = require('../js/data.js');
 
 function setup({ stage = 0, seed = 7 } = {}) {
   const engine = createEngine({ difficulty: 'normal', rng: mulberry32(seed) });
@@ -64,24 +63,27 @@ test('引き直し: MP とリキャストを消費して攻撃3枠を入れ替�
   assert.equal(engine.redraw(), false, 'MP不足では不可');
 });
 
-test('ドローは弱点属性に寄り、耐性属性は出にくい', () => {
-  const counts = { weak: 0, neutral: 0, resist: 0 };
+test('手札の他の呪文と頭のかなが同じ攻撃カードは出にくい', () => {
+  let same = 0;
+  let n = 0;
   for (let seed = 1; seed <= 300; seed++) {
-    for (let stage = 0; stage < ENEMIES.length; stage++) {
-      const engine = setup({ stage, seed });
-      for (const card of engine.state.attackHand) {
-        const m = Battle.elementMultiplier(card.element, engine.state.enemy.element);
-        counts[m > 1 ? 'weak' : m < 1 ? 'resist' : 'neutral']++;
-      }
-    }
+    const engine = setup({ seed });
+    const hand = engine.cards();
+    hand.slice(0, 3).forEach((card, i) => {
+      n++;
+      if (hand.some((other, j) => j !== i && other.kana[0] === card.kana[0])) same++;
+    });
   }
-  const total = counts.weak + counts.neutral + counts.resist;
-  assert.ok(counts.weak / total > 0.3, `弱点 ${counts.weak / total}`);
-  assert.ok(counts.resist / total < 0.12, `耐性 ${counts.resist / total}`);
-  assert.ok(counts.resist > 0, '耐性も完全には消えない');
+  assert.ok(same / n < 0.1, `${same}/${n}`);
 });
 
-test('撃てて有効な攻撃カードはほぼ常に1枚以上ある (完全保証ではない)', () => {
+test('支援呪文の頭のかなは攻撃呪文と重ならない', () => {
+  const heads = new Set(SKILLS.map((s) => s.kana[0]));
+  assert.equal(heads.size, SKILLS.length);
+  for (const a of ATTACKS) assert.ok(!heads.has(a.kana[0]), a.name);
+});
+
+test('撃てる攻撃カードはほぼ常に1枚以上ある (完全保証ではない)', () => {
   let ok = 0;
   let n = 0;
   for (let seed = 1; seed <= 400; seed++) {

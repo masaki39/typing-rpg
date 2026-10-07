@@ -95,17 +95,13 @@ export function properPolicy(engine, { keyMs, reaction }) {
   if (!p.empower && p.mp >= 55 && ok(id('empower'))) return id('empower');
 
   const reserve = 26; // 盾 + 回復ぶんは残す
-  const resisted = (i) => Battle.elementMultiplier(list[i].element, e.element) < 1;
-  // 撃てて有効な攻撃カードが1枚もなければ引き直す
-  if (![0, 1, 2].some((i) => ok(i) && !resisted(i)) && engine.canRedraw()) return 'redraw';
-  // 人間と同じく耐性属性はなるべく避ける (他に撃てるものがなければ使う)
-  for (const avoidResist of [true, false]) {
-    for (const i of [2, 1, 0]) {
-      const s = list[i];
-      if (!ok(i) || (avoidResist && resisted(i))) continue;
-      if (s.mp && p.mp - s.mp < reserve) continue;
-      return i;
-    }
+  // 撃てる攻撃カードが1枚もなければ引き直す
+  if (![0, 1, 2].some((i) => ok(i)) && engine.canRedraw()) return 'redraw';
+  for (const i of [2, 1, 0]) {
+    const s = list[i];
+    if (!ok(i)) continue;
+    if (s.mp && p.mp - s.mp < reserve) continue;
+    return i;
   }
   return 0;
 }

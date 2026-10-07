@@ -9,19 +9,10 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  // key が value に強い: 水→火→氷→雷→水
-  const BEATS = { water: 'fire', fire: 'ice', ice: 'thunder', thunder: 'water' };
-
   /** 打鍵数から威力。長い呪文ほど1打あたりの効率が上がる */
+  const POWER_COEF = 2.1;
   function spellPower(keys) {
-    return Math.round(1.6 * Math.pow(keys, 1.2));
-  }
-
-  function elementMultiplier(spellElement, enemyElement) {
-    if (!spellElement || !enemyElement) return 1;
-    if (BEATS[spellElement] === enemyElement) return 2;
-    if (spellElement === enemyElement) return 0.5;
-    return 1;
+    return Math.round(POWER_COEF * Math.pow(keys, 1.2));
   }
 
   /** ミス1回ごとに -10%、下限 40% */
@@ -34,12 +25,11 @@
     return 1 + 0.05 * Math.min(Math.max(combo, 0), 10);
   }
 
-  function computeDamage({ base, spellElement, enemyElement, misses = 0, combo = 0, empower = 1 }) {
-    const elementMult = elementMultiplier(spellElement, enemyElement);
+  function computeDamage({ base, misses = 0, combo = 0, empower = 1 }) {
     const missMult = missMultiplier(misses);
     const comboMult = comboMultiplier(combo);
-    const damage = Math.max(1, Math.round(base * elementMult * missMult * comboMult * empower));
-    return { damage, elementMult, missMult, comboMult };
+    const damage = Math.max(1, Math.round(base * missMult * comboMult * empower));
+    return { damage, missMult, comboMult };
   }
 
   function computeHeal({ base, misses = 0 }) {
@@ -67,8 +57,7 @@
   }
 
   return {
-    BEATS, spellPower, canCast, applyMp, incomingDamage, consumesBarrier,
-    elementMultiplier, missMultiplier,
+    spellPower, canCast, applyMp, incomingDamage, consumesBarrier, missMultiplier,
     comboMultiplier, computeDamage, computeHeal,
   };
 });
