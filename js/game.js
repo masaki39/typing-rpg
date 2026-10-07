@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  const { ENEMIES, ELEMENTS, DIFFICULTIES, DIFFICULTY_ORDER, ABILITY_TYPES } = window.GameData;
+  const { ENEMIES, ELEMENTS, DIFFICULTIES, DIFFICULTY_ORDER, ABILITY_TYPES, HAND } = window.GameData;
   const { Battle, Sfx } = window;
   const engine = window.Engine.createEngine({ difficulty: loadDifficulty() });
   const state = engine.state;
@@ -25,6 +25,7 @@
     combo: $('stat-combo'), kpm: $('stat-kpm'), acc: $('stat-acc'), int: $('stat-int'),
     log: $('log'), hand: $('hand'), attackRow: $('attack-row'), skillRow: $('skill-row'),
     overlay: $('overlay'), overlayContent: $('overlay-content'), imeWarning: $('ime-warning'),
+    redrawTile: $('redraw-tile'), redrawCost: $('redraw-cost'), redrawCd: $('redraw-cd'),
   };
 
   // UI 側の状態 (一時停止とタイトルの難易度選択)
@@ -72,13 +73,14 @@
         <div class="card-kana"></div>
         <div class="card-romaji"><span class="typed"></span><span class="rest"></span></div>
         <footer class="card-foot"></footer>
+        <div class="wear" title="使わずにいると風化して入れ替わる"></div>
         <div class="cd-veil"><span class="cd-text num"></span></div>`;
       (spell.role === 'attack' ? dom.attackRow : dom.skillRow).appendChild(node);
       const q = (sel) => node.querySelector(sel);
       return {
         node, spellId: null, badge: q('.slot-badge'), meta: q('.card-meta'), name: q('.card-name'),
         kana: q('.card-kana'), typed: q('.typed'), rest: q('.rest'), foot: q('.card-foot'),
-        veil: q('.cd-veil'), cdText: q('.cd-text'), i,
+        veil: q('.cd-veil'), cdText: q('.cd-text'), wear: q('.wear'), i,
       };
     });
   }
@@ -106,7 +108,9 @@
       const live = c.live.includes(i);
       if (n.spellId !== spell.id) {
         n.spellId = spell.id;
-        n.node.className = `card ${spell.role === 'attack' ? 'attack' : 'skill'} el-${spell.element}`;
+        // className を丸ごと書き換えると演出用クラス (renew 等) が消えるので属性クラスだけ差し替える
+        n.node.classList.remove(...[...n.node.classList].filter((cls) => cls.startsWith('el-')));
+        n.node.classList.add(`el-${spell.element}`);
         n.badge.innerHTML = elementBadge(spell.element);
         n.name.textContent = spell.name;
         n.meta.textContent = spell.role === 'attack'
@@ -122,8 +126,35 @@
       n.typed.textContent = live ? m.typed : '';
       n.rest.textContent = live ? m.remaining : spell.romaji;
       n.foot.innerHTML = cardFooter(spell, c, live);
+      if (spell.role === 'attack') renderWear(n, state.attackAge[i]);
     });
     renderCooldowns();
+  }
+
+  /** 風化の進み具合 (使われずに過ぎた詠唱回数) */
+  function renderWear(n, age) {
+    const limit = HAND.weatherAfter;
+    for (let k = 0; k <= limit; k++) n.node.classList.toggle(`wear-${k}`, k === age);
+    n.wear.textContent = `${'●'.repeat(age)}${'○'.repeat(Math.max(0, limit - age))}`;
+    n.wear.title = `あと${limit - age}回ほかの呪文を唱えると風化して入れ替わる`;
+  }
+
+  function renderRedraw() {
+    const cd = state.cooldowns.redraw || 0;
+    const ready = engine.canRedraw();
+    dom.redrawTile.classList.toggle('disabled', !ready);
+    dom.redrawCost.textContent = `MP${HAND.redraw.mp} / ${HAND.redraw.cd}s`;
+    dom.redrawCd.textContent = cd > 0 ? fmtSec(cd) : !ready && state.phase === 'battle' ? 'MP不足' : '';
+    dom.redrawTile.querySelector('.cd-veil').style.setProperty('--cd', cd > 0 ? cd / (HAND.redraw.cd * 1000) : 0);
+  }
+
+  function tryRedraw() {
+    if (engine.redraw()) {
+      flushEvents();
+      renderFrame();
+    } else {
+      retrigger(dom.redrawTile, 'deny');
+    }
   }
 
   /** リキャスト・MP不足の表示 (毎フレーム) */
@@ -138,6 +169,7 @@
       n.veil.style.setProperty('--cd', cd > 0 ? cd / (spell.cd * 1000) : 0);
       n.cdText.textContent = cd > 0 ? fmtSec(cd) : !enabled ? 'MP不足' : '';
     });
+    renderRedraw();
   }
 
   // ---------- 描画 ----------
@@ -431,6 +463,17 @@
           handDirty = true;
           break;
         }
+        case 'weathered': {
+          const n = cardNodes[ev.slot];
+          if (n) retrigger(n.node, 'renew', 700);
+          handDirty = true;
+          break;
+        }
+        case 'redraw':
+          cardNodes.slice(0, 3).forEach((n) => retrigger(n.node, 'renew', 700));
+          Sfx.key();
+          handDirty = true;
+          break;
         case 'castBroken':
           floatText(dom.playerFx, '詠唱中断！', 'hurt');
           handDirty = true;
@@ -468,11 +511,11 @@
   }
 
   /** CSS アニメーションを毎回再生し直す */
-  function retrigger(node, cls) {
+  function retrigger(node, cls, ms = 450) {
     node.classList.remove(cls);
     void node.offsetWidth;
     node.classList.add(cls);
-    setTimeout(() => node.classList.remove(cls), 450);
+    setTimeout(() => node.classList.remove(cls), ms);
   }
 
   // ---------- ループ ----------
@@ -505,8 +548,11 @@
     const key = e.key;
     const confirm = key === ' ' || key === 'Enter';
 
+    if (key === 'Tab') e.preventDefault(); // フォーカス移動させない
     if (state.phase === 'battle' && !ui.paused) {
-      if (key === 'Escape' || key === 'Backspace') {
+      if (key === 'Tab') {
+        if (!e.repeat) tryRedraw();
+      } else if (key === 'Escape' || key === 'Backspace') {
         e.preventDefault();
         engine.cancelCast();
         flushEvents();
@@ -555,6 +601,11 @@
 
   window.addEventListener('blur', pause);
   document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+
+  dom.redrawTile.addEventListener('click', (e) => {
+    e.currentTarget.blur();
+    if (state.phase === 'battle' && !ui.paused) tryRedraw();
+  });
 
   dom.sound.addEventListener('click', (e) => {
     dom.sound.textContent = Sfx.toggle() ? '🔊' : '🔇';

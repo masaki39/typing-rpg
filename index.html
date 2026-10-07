@@ -74,11 +74,20 @@
     </section>
 
     <section id="hand" class="hand">
-      <div id="attack-row" class="attack-row"></div>
+      <div class="attack-line">
+        <div id="attack-row" class="attack-row"></div>
+        <button id="redraw-tile" class="redraw-tile" type="button" title="攻撃呪文3枠を引き直す">
+          <span class="redraw-icon">↻</span>
+          <span class="redraw-label">引き直し</span>
+          <kbd>Tab</kbd>
+          <span id="redraw-cost" class="redraw-cost num"></span>
+          <span class="cd-veil"><span id="redraw-cd" class="cd-text num"></span></span>
+        </button>
+      </div>
       <div id="skill-row" class="skill-row"></div>
     </section>
 
-    <p class="help">打ち始めた文字で呪文が決まります／<kbd>Esc</kbd>・<kbd>Backspace</kbd>で詠唱を破棄／入力は<strong>半角英数（IMEオフ）</strong>で</p>
+    <p class="help">打ち始めた文字で呪文が決まります／<kbd>Esc</kbd>・<kbd>Backspace</kbd>で詠唱を破棄／<kbd>Tab</kbd>で攻撃呪文を引き直し／入力は<strong>半角英数（IMEオフ）</strong>で</p>
     <p id="ime-warning" class="ime-warning">IMEがオンになっています。半角英数入力に切り替えてください。</p>
 
     <div id="overlay" class="overlay">

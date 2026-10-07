@@ -246,7 +246,30 @@ kbd {
 .hand { margin-top: 8px; border-radius: 12px; outline: 2px solid transparent; outline-offset: 4px; }
 .hand.miss-flash { animation: miss-flash 0.35s; }
 @keyframes miss-flash { 0% { outline-color: var(--bad); } 100% { outline-color: transparent; } }
+.attack-line { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 10px; }
 .attack-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+
+/* 引き直し (Tab) */
+.redraw-tile {
+  position: relative;
+  height: 128px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  background: var(--bg2);
+  border: 2px dashed var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  outline: 2px solid transparent;
+}
+.redraw-icon { font-size: 1.6rem; line-height: 1; color: var(--accent); }
+.redraw-label { font-size: 0.8rem; font-weight: bold; }
+.redraw-cost { font-size: 0.68rem; color: var(--muted); }
+.redraw-tile.disabled { filter: grayscale(0.9) brightness(0.75); cursor: default; }
+.redraw-tile.disabled .cd-veil { visibility: visible; }
+.redraw-tile.deny { animation: deny 0.35s; }
+@keyframes deny { 0% { outline-color: var(--bad); } 100% { outline-color: transparent; } }
 .skill-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
 
 .card {
@@ -306,6 +329,39 @@ kbd {
   visibility: hidden;
 }
 .card.disabled .cd-veil { visibility: visible; }
+.card.disabled { filter: grayscale(0.85) brightness(0.8); }
+
+/* 風化: 使われずに残るほど色あせ、ひびが入る (絶対配置・filter のみでサイズは不変) */
+.wear {
+  position: absolute; right: 8px; bottom: 5px;
+  font-size: 0.55rem; letter-spacing: 1px; color: #5d5680;
+  pointer-events: none;
+}
+.card.skill .wear { display: none; }
+.card.attack::after {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    linear-gradient(115deg, transparent 46%, rgba(20, 14, 6, 0.55) 47%, transparent 48.5%),
+    linear-gradient(60deg, transparent 62%, rgba(20, 14, 6, 0.45) 63%, transparent 64%),
+    linear-gradient(160deg, transparent 30%, rgba(20, 14, 6, 0.35) 31%, transparent 32%),
+    radial-gradient(ellipse at 80% 90%, rgba(120, 90, 40, 0.35), transparent 60%);
+  transition: opacity 0.3s;
+}
+.card.wear-3 .wear { color: #b8915a; }
+.card.wear-4 .wear { color: #e0a050; }
+.card.wear-3::after { opacity: 0.5; }
+.card.wear-4::after { opacity: 1; }
+.card.wear-3:not(.disabled) { filter: sepia(0.3); }
+.card.wear-4:not(.disabled) { filter: sepia(0.6) brightness(0.9); }
+.card.renew { animation: renew 0.7s ease-out; }
+@keyframes renew {
+  0% { opacity: 0.1; filter: sepia(1) blur(3px); }
+  60% { opacity: 1; filter: sepia(0.2) blur(0); }
+  100% { opacity: 1; filter: none; }
+}
 .cd-text { font-family: var(--mono); font-weight: bold; font-size: 1rem; text-shadow: 0 1px 3px #000; }
 
 .badge {
