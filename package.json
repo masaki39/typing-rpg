@@ -1,0 +1,9 @@
+{
+  "name": "typing-rpg",
+  "version": "0.1.0",
+  "private": true,
+  "description": "呪文詠唱タイピングRPG (静的サイト / 依存ゼロ)",
+  "scripts": {
+    "test": "node --test"
+  }
+}
