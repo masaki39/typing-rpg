@@ -132,7 +132,7 @@ export const BOTS = {
 
 /** 1ステージを bot で戦う */
 export function runStage({
-  difficulty, stage, bot, seed = 1, reaction = 300, maxMs = 600000, trace = null, onDecision = null,
+  difficulty, stage, bot, seed = 1, reaction = 300, maxMs = 600000, trace = null, onDecision = null, onKey = null,
   kps: kpsOverride, missRate: missOverride,
 }) {
   const { policy } = BOTS[bot];
@@ -157,7 +157,11 @@ export function runStage({
     if (onDecision) onDecision(engine);
     const choice = policy(engine, { keyMs, reaction });
     if (choice == null) { wait(100); continue; }
-    if (choice === 'redraw') { wait(reaction); engine.redraw(); continue; }
+    if (choice === 'redraw') {
+      wait(reaction);
+      if (engine.redraw() && onKey) onKey('<redraw>');
+      continue;
+    }
     wait(reaction);
     if (engine.state.phase !== 'battle') break;
     if (!engine.isEnabled(engine.cards()[choice])) continue;
@@ -166,6 +170,7 @@ export function runStage({
       if (rng() < missRate) { engine.key(';'); wait(keyMs); }
       if (engine.state.phase !== 'battle') break;
       const r = engine.key(ch);
+      if (onKey && r.ok) onKey(ch);
       wait(keyMs);
       if (!r.ok || engine.state.phase !== 'battle' || !engine.state.cast.started) break;
     }
