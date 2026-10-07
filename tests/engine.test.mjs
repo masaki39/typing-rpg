@@ -97,34 +97,33 @@ test('継続ダメージは浄化で解除できる', () => {
   assert.equal(p.dot, null);
 });
 
-test('詠唱中に被弾しても入力はリセットされず、乱れ(威力減)が付くだけ', () => {
-  const engine = setup();
-  const romaji = engine.cards()[2].romaji;
-  for (const ch of romaji.slice(0, 5)) engine.key(ch);
-  const typed = engine.state.cast.matchers[2].typed;
-  const live = [...engine.state.cast.live];
-  engine.tick(forceEnemyCast(engine, 'tackle'));
-  engine.tick(forceEnemyCast(engine, 'tsunami'));
-  const c = engine.state.cast;
+test('詠唱中に被弾しても入力も威力も一切変わらない', () => {
+  const hit = setup();
+  const calm = setup();
+  const romaji = hit.cards()[2].romaji;
+  assert.equal(calm.cards()[2].romaji, romaji);
+  for (const ch of romaji.slice(0, 5)) { hit.key(ch); calm.key(ch); }
+  const typed = hit.state.cast.matchers[2].typed;
+  const live = [...hit.state.cast.live];
+  hit.tick(forceEnemyCast(hit, 'tackle'));
+  hit.tick(forceEnemyCast(hit, 'tsunami'));
+  const c = hit.state.cast;
   assert.equal(c.started, true);
   assert.equal(c.matchers[2].typed, typed, '入力済みの文字列はそのまま');
   assert.deepEqual(c.live, live, '候補の絞り込みもそのまま');
-  assert.equal(c.disrupts, 2);
-  // 続きを打てば詠唱できる
-  for (const ch of romaji.slice(5)) engine.key(ch);
-  assert.ok(engine.state.enemy.hp < engine.state.enemy.maxHp);
+  for (const ch of romaji.slice(5)) { hit.key(ch); calm.key(ch); }
+  const dmg = (eng) => eng.state.enemy.maxHp - eng.state.enemy.hp;
+  assert.equal(dmg(hit), dmg(calm), '被弾してもダメージは同じ');
 });
 
-test('盾は通常攻撃では消えず、大技1回で消費される。盾中は乱れない', () => {
+test('盾は通常攻撃では消えず、大技1回で消費される', () => {
   const engine = setup();
   castCard(engine, 'barrier');
   const p = engine.state.player;
-  for (const ch of engine.cards()[2].romaji.slice(0, 5)) engine.key(ch);
   engine.tick(forceEnemyCast(engine, 'tackle'));
   assert.ok(p.barrier, '通常攻撃では消えない');
   engine.tick(forceEnemyCast(engine, 'tsunami'));
   assert.equal(p.barrier, null, '大技で消費');
-  assert.equal(engine.state.cast.disrupts, 0);
 });
 
 test('盾は最大持続時間で切れる', () => {

@@ -29,28 +29,21 @@
     return Math.max(0.4, 1 - 0.1 * misses);
   }
 
-  /** 詠唱中に被弾するたび ×0.85 (入力はリセットしない) */
-  const DISRUPT_MULT = 0.85;
-  function disruptMultiplier(disrupts) {
-    return Math.pow(DISRUPT_MULT, disrupts);
-  }
-
   /** ノーミス連続詠唱でコンボ1ごとに +5%、上限 +50% */
   function comboMultiplier(combo) {
     return 1 + 0.05 * Math.min(Math.max(combo, 0), 10);
   }
 
-  function computeDamage({ base, spellElement, enemyElement, misses = 0, disrupts = 0, combo = 0, empower = 1 }) {
+  function computeDamage({ base, spellElement, enemyElement, misses = 0, combo = 0, empower = 1 }) {
     const elementMult = elementMultiplier(spellElement, enemyElement);
     const missMult = missMultiplier(misses);
-    const disruptMult = disruptMultiplier(disrupts);
     const comboMult = comboMultiplier(combo);
-    const damage = Math.max(1, Math.round(base * elementMult * missMult * disruptMult * comboMult * empower));
-    return { damage, elementMult, missMult, disruptMult, comboMult };
+    const damage = Math.max(1, Math.round(base * elementMult * missMult * comboMult * empower));
+    return { damage, elementMult, missMult, comboMult };
   }
 
-  function computeHeal({ base, misses = 0, disrupts = 0 }) {
-    return Math.max(1, Math.round(base * missMultiplier(misses) * disruptMultiplier(disrupts)));
+  function computeHeal({ base, misses = 0 }) {
+    return Math.max(1, Math.round(base * missMultiplier(misses)));
   }
 
   /** MP とリキャストから詠唱可能か */
@@ -68,22 +61,14 @@
     return { damage: Math.round(base * vulnMult * (1 - barrier)), barrierUsed: barrier > 0 };
   }
 
-  /**
-   * 詠唱中に被弾したときの影響。入力中の文字列は決して消さず、
-   * 盾で守られていなければ「乱れ」(威力 ×0.85) になるだけ。
-   */
-  function castDisruption(shielded) {
-    return shielded ? 'none' : 'disrupt';
-  }
-
   /** 盾を消費する技 (通常攻撃と継続ダメージ付与では消費しない) */
   function consumesBarrier(abilityType) {
     return abilityType !== 'auto' && abilityType !== 'dot';
   }
 
   return {
-    BEATS, DISRUPT_MULT, spellPower, canCast, applyMp, incomingDamage, castDisruption, consumesBarrier,
+    BEATS, spellPower, canCast, applyMp, incomingDamage, consumesBarrier,
     elementMultiplier, missMultiplier,
-    disruptMultiplier, comboMultiplier, computeDamage, computeHeal,
+    comboMultiplier, computeDamage, computeHeal,
   };
 });

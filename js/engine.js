@@ -42,7 +42,7 @@
   }
 
   function newStats() {
-    return { correct: 0, miss: 0, activeMs: 0, casts: 0, maxCombo: 0, damage: 0, interrupts: 0, disrupted: 0, warded: 0 };
+    return { correct: 0, miss: 0, activeMs: 0, casts: 0, maxCombo: 0, damage: 0, interrupts: 0, warded: 0 };
   }
 
   function createEngine({ difficulty = 'normal', rng = Math.random } = {}) {
@@ -160,7 +160,6 @@
         matchers: list.map((s) => new Romaji.Matcher(s.kana)),
         live: list.map((_, i) => i),
         misses: 0,
-        disrupts: 0,
         started: false,
       };
     }
@@ -304,14 +303,7 @@
         p.vuln = { name: ability.vuln.name, mult: ability.vuln.mult, remaining: ability.vuln.duration * 1000 };
         log(`${ability.vuln.name}状態になった（被ダメージ ×${ability.vuln.mult}）`);
       }
-
-      // 被弾しても入力中の詠唱はそのまま (威力が少し下がるだけ)
-      const c = state.cast;
-      if (c.started && Battle.castDisruption(r.barrierUsed) === 'disrupt') {
-        c.disrupts++;
-        state.stats.disrupted++;
-        emit('disrupted');
-      }
+      // 被弾しても入力中の詠唱には一切影響しない (入力状態も威力もそのまま)
       if (p.hp <= 0) lose(ability.type === 'enrage' ? 'enrage' : 'hp');
     }
 
@@ -413,7 +405,7 @@
         case 'attack': {
           const r = Battle.computeDamage({
             base: spell.value, spellElement: spell.element, enemyElement: e.element,
-            misses: c.misses, disrupts: c.disrupts, combo: state.combo, empower: p.empower ? p.empower.mult : 1,
+            misses: c.misses, combo: state.combo, empower: p.empower ? p.empower.mult : 1,
           });
           p.empower = null;
           e.hp = Math.max(0, e.hp - r.damage);
@@ -425,7 +417,7 @@
           break;
         }
         case 'heal': {
-          const amount = Battle.computeHeal({ base: spell.amount, misses: c.misses, disrupts: c.disrupts });
+          const amount = Battle.computeHeal({ base: spell.amount, misses: c.misses });
           const before = p.hp;
           p.hp = Math.min(p.maxHp, p.hp + amount);
           emit('heal', { amount: Math.round(p.hp - before) });

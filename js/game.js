@@ -90,10 +90,9 @@
     const p = state.player;
     const mult = Battle.elementMultiplier(spell.element, state.enemy.element);
     let v = spell.value * mult * (p.empower ? p.empower.mult : 1);
-    if (live && c.started) v *= Battle.missMultiplier(c.misses) * Battle.disruptMultiplier(c.disrupts);
+    if (live && c.started) v *= Battle.missMultiplier(c.misses);
     const tag = mult > 1 ? '<span class="tag weak">弱点×2</span>' : mult < 1 ? '<span class="tag resist">耐性×½</span>' : '';
-    const pen = live && c.started && (c.misses || c.disrupts)
-      ? `<span class="tag penalty">${c.misses ? `ミス${c.misses}` : ''}${c.disrupts ? ` 乱れ${c.disrupts}` : ''}</span>` : '';
+    const pen = live && c.started && c.misses ? `<span class="tag penalty">ミス${c.misses}</span>` : '';
     return `威力 <strong class="num">${Math.round(v)}</strong>${tag}${pen}`;
   }
 
@@ -270,7 +269,6 @@
       <dt>最大コンボ</dt><dd class="num">${s.maxCombo}</dd>
       <dt>中断成功</dt><dd class="num">${s.interrupts}</dd>
       <dt>加護で防いだ</dt><dd class="num">${s.warded}</dd>
-      <dt>被弾中の詠唱</dt><dd class="num">${s.disrupted}</dd>
       <dt>KPM</dt><dd class="num">${kpm}</dd>
       <dt>正確率</dt><dd class="num">${acc}%</dd>
     </dl>`;
@@ -318,7 +316,7 @@
         <li><strong>ボスの詠唱バー</strong>を見て対応：<span class="tl-item type-buster">タンクバスター</span>は<strong>守りの盾</strong>、
           <span class="tl-item type-interruptible">中断可能</span>は<strong>黙れ</strong>、<span class="tl-item type-dot">継続ダメージ</span>は<strong>浄化</strong>、
           <span class="tl-item type-raidwide">全体攻撃</span>の後は回復。</li>
-        <li>被弾しても入力は途切れない（威力が少し下がる）。<strong>盾・黙れ・浄化は先行入力OK</strong>。着弾前に間に合わせよう。</li>
+        <li>被弾しても詠唱には影響しない。<strong>盾・黙れ・浄化は先行入力OK</strong>。着弾前に間に合わせよう。</li>
         <li>⏱ が 0 になると<strong>時間切れ（全滅技）</strong>。守ってばかりでは勝てない。</li>
       </ul>
       <div class="diff-select">${buttons}</div>
@@ -449,10 +447,6 @@
         case 'warded':
           floatText(dom.playerFx, '加護！', 'buff');
           Sfx.heal();
-          break;
-        case 'disrupted':
-          // 入力中の表示はそのまま。カード下部の威力と「乱れ」タグだけ更新する
-          handDirty = true;
           break;
         case 'interrupted':
           floatText(dom.enemyFx, '中断！', 'label weak');
