@@ -1,3 +1,7 @@
+/*
+ * レイアウト方針: 各領域は固定サイズ。表示の出し入れは visibility / opacity で行い、
+ * 数値は tabular-nums にして、詠唱・被弾・撃破で要素の位置が動かないようにする。
+ */
 :root {
   --bg: #12101c;
   --bg2: #1d1a2e;
@@ -8,14 +12,26 @@
   --accent: #ffcf5a;
   --good: #6dff9c;
   --bad: #ff5a6e;
+  --mp: #5a8cff;
   --fire: #ff7a4a;
   --water: #4aa8ff;
   --thunder: #ffd84a;
   --ice: #9fe8ff;
   --heal: #7dffb0;
+  --guard: #c9b6ff;
+  --silence: #ff9ad5;
+  --pure: #7ee8e0;
+  --buff: #d68cff;
+  --t-auto: #8f88b0;
+  --t-raidwide: #ff9f43;
+  --t-buster: #ff4d6d;
+  --t-interruptible: #ff9ad5;
+  --t-dot: #9be15d;
+  --t-enrage: #ff2040;
   --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
+html { scrollbar-gutter: stable; }
 * { box-sizing: border-box; }
 
 body {
@@ -27,11 +43,13 @@ body {
 }
 
 #app {
-  max-width: 1080px;
+  width: 1080px;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 12px 16px 24px;
+  padding: 10px 16px 16px;
 }
 
+.num { font-variant-numeric: tabular-nums; }
 .hidden { display: none !important; }
 
 kbd {
@@ -46,24 +64,26 @@ kbd {
 }
 
 /* ---------- ヘッダー ---------- */
-.topbar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.topbar h1 { font-size: 1.1rem; margin: 0; letter-spacing: 0.1em; }
-.stage-label { color: var(--accent); font-family: var(--mono); margin-left: auto; }
+.topbar { display: flex; align-items: center; gap: 14px; height: 36px; }
+.topbar h1 { font-size: 1.05rem; margin: 0; letter-spacing: 0.1em; white-space: nowrap; }
+.diff-label { margin-left: auto; font-size: 0.8rem; padding: 1px 10px; border-radius: 999px; border: 1px solid currentColor; min-width: 64px; text-align: center; }
+.stage-label { color: var(--accent); font-family: var(--mono); width: 110px; text-align: right; }
 .sound-toggle {
   background: var(--panel); border: 1px solid var(--line); color: var(--text);
   border-radius: 6px; cursor: pointer; font-size: 1rem; padding: 2px 8px;
 }
+.diff-easy { color: #7dffb0; }
+.diff-normal { color: #4aa8ff; }
+.diff-hard { color: #ff9f43; }
+.diff-savage { color: #ff4d6d; }
 
 /* ---------- バトル画面 ---------- */
 .battlefield {
   display: grid;
-  grid-template-columns: 1fr 280px;
+  grid-template-columns: minmax(0, 1fr) 290px;
   gap: 12px;
-  margin-top: 12px;
+  margin-top: 8px;
+  height: 340px;
 }
 
 .enemy-area {
@@ -71,18 +91,21 @@ kbd {
   background: linear-gradient(180deg, #2b2446, #1a1630);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 16px 24px;
-  min-height: 260px;
+  padding: 12px 20px;
   overflow: hidden;
 }
-.enemy-header { display: flex; align-items: center; gap: 8px; }
-.enemy-name { font-size: 1.3rem; font-weight: bold; }
+.enemy-top { display: flex; align-items: center; gap: 8px; height: 28px; }
+.enemy-name { font-size: 1.2rem; font-weight: bold; white-space: nowrap; }
+.phase-label { font-size: 0.75rem; color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 6px; }
+.enrage { margin-left: auto; font-family: var(--mono); font-size: 1.05rem; color: var(--muted); }
+.enrage.danger { color: var(--bad); }
 
 .sprite {
-  font-size: 110px;
-  line-height: 1;
+  height: 100px;
+  font-size: 84px;
+  line-height: 100px;
   text-align: center;
-  margin: 12px 0;
+  margin: 4px 0;
   filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.6));
   transition: opacity 0.6s, transform 0.6s;
   user-select: none;
@@ -95,15 +118,16 @@ kbd {
 .sprite.hit-thunder { --hit: var(--thunder); }
 .sprite.hit-ice { --hit: var(--ice); }
 
+/* 敵スプライトの演出は transform のみ (周囲のレイアウトには影響しない) */
 @keyframes hit {
-  0% { transform: translateX(0); filter: drop-shadow(0 0 0 var(--hit)) brightness(2); }
+  0% { transform: translateX(0); filter: brightness(2); }
   25% { transform: translateX(-10px); filter: drop-shadow(0 0 30px var(--hit)) brightness(1.6); }
   50% { transform: translateX(8px); }
   100% { transform: translateX(0); filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.6)); }
 }
 @keyframes lunge {
   0% { transform: scale(1); }
-  40% { transform: scale(1.25) translateY(20px); }
+  40% { transform: scale(1.2) translateY(10px); }
   100% { transform: scale(1); }
 }
 
@@ -126,105 +150,169 @@ kbd {
 .hp-bar .fill { background: linear-gradient(90deg, #d8364c, #ff6b7d); }
 .hp-bar.player .fill { background: linear-gradient(90deg, #2fbf6a, var(--good)); }
 .hp-bar.player .fill.low { background: linear-gradient(90deg, #d8a336, #ffcf5a); }
-.timer-bar { height: 10px; }
-.timer-bar .bar-text { font-size: 0.6rem; color: var(--muted); }
-.timer-bar .fill { background: linear-gradient(90deg, #6b5fb0, #b4a6ff); transition: none; }
-.timer-bar .fill.heavy { background: linear-gradient(90deg, #b03050, #ff4060); }
-.intent { min-height: 1.3em; color: var(--bad); font-weight: bold; font-size: 0.9rem; }
+.mp-bar .fill { background: linear-gradient(90deg, #3456c8, var(--mp)); transition: width 0.1s linear; }
+
+/* ボスの詠唱バー */
+.boss-cast {
+  --tc: var(--t-auto);
+  height: 62px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #15121f;
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+.boss-cast.casting { opacity: 1; border-color: var(--tc); }
+.boss-cast.type-raidwide { --tc: var(--t-raidwide); }
+.boss-cast.type-buster { --tc: var(--t-buster); }
+.boss-cast.type-interruptible { --tc: var(--t-interruptible); }
+.boss-cast.type-dot { --tc: var(--t-dot); }
+.boss-cast.type-enrage { --tc: var(--t-enrage); }
+.boss-cast-head { display: flex; align-items: center; gap: 8px; height: 22px; white-space: nowrap; overflow: hidden; }
+.cast-type { font-size: 0.72rem; padding: 0 6px; border-radius: 4px; background: var(--tc); color: #120f1c; font-weight: bold; }
+.cast-name { font-weight: bold; }
+.cast-hint { margin-left: auto; font-size: 0.8rem; color: var(--tc); font-weight: bold; }
+.boss-cast .cast-bar { height: 14px; margin: 6px 0 0; }
+.cast-bar .fill { background: var(--tc); transition: none; }
+.boss-cast.type-buster.casting, .boss-cast.type-interruptible.casting { animation: pulse 0.8s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 14px var(--tc); } }
+
+.next-line { height: 20px; margin-top: 6px; font-size: 0.78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- サイドパネル ---------- */
-.side { display: flex; flex-direction: column; gap: 12px; }
+.side { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 10px; min-height: 0; }
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 10px 14px;
+  padding: 8px 12px;
 }
-.panel h2 { font-size: 0.8rem; color: var(--muted); margin: 0 0 6px; font-weight: normal; letter-spacing: 0.1em; }
+.panel h2 { font-size: 0.75rem; color: var(--muted); margin: 0 0 4px; font-weight: normal; letter-spacing: 0.1em; }
 .chart { margin: 0; font-size: 0.85rem; white-space: nowrap; }
-.note { color: var(--muted); font-size: 0.8rem; margin: 4px 0 0; }
+.note { color: var(--muted); font-size: 0.78rem; margin: 2px 0 0; }
 
 .stats {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 2px 12px;
+  gap: 1px 12px;
   margin: 0;
 }
-.stats dt { color: var(--muted); font-size: 0.85rem; }
-.stats dd { margin: 0; text-align: right; font-family: var(--mono); }
+.stats dt { color: var(--muted); font-size: 0.8rem; }
+.stats dd { margin: 0; text-align: right; font-family: var(--mono); font-size: 0.85rem; }
 
 .log {
   list-style: none;
   margin: 0;
-  flex: 1;
-  min-height: 120px;
-  font-size: 0.8rem;
+  overflow: hidden;
+  font-size: 0.75rem;
   color: var(--muted);
 }
-.log li { padding: 2px 0; border-bottom: 1px dashed #322c4c; }
+.log li {
+  height: 19px;
+  line-height: 18px;
+  border-bottom: 1px dashed #322c4c;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .log li.latest { color: var(--text); }
 
 /* ---------- プレイヤー ---------- */
-.player-area {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 12px;
+.player-area { position: relative; margin-top: 10px; height: 62px; }
+.player-bars { display: grid; grid-template-columns: auto minmax(0, 3fr) auto minmax(0, 2fr); align-items: center; gap: 8px; }
+.player-bars .bar { height: 20px; border-radius: 10px; margin: 0; }
+.player-label { font-weight: bold; font-size: 0.85rem; }
+.status-row { display: flex; gap: 8px; height: 26px; margin-top: 8px; }
+.status {
+  width: 120px;
+  height: 24px;
+  line-height: 22px;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  white-space: nowrap;
+  overflow: hidden;
+  visibility: hidden;
 }
-.player-label { white-space: nowrap; font-weight: bold; }
-.player-area .bar { flex: 1; height: 22px; border-radius: 11px; }
-.player-area .fx-layer { top: -30px; }
+.status.on { visibility: visible; }
+.status.buff { color: var(--guard); border-color: #5b4d8a; background: #241f38; }
+.status.debuff { color: var(--bad); border-color: #7a2e3c; background: #2a1520; }
+.player-area .fx-layer { top: -24px; }
 
 /* ---------- 手札 ---------- */
-.hand {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  margin-top: 14px;
-}
+.hand { margin-top: 8px; border-radius: 12px; outline: 2px solid transparent; outline-offset: 4px; }
+.hand.miss-flash { animation: miss-flash 0.35s; }
+@keyframes miss-flash { 0% { outline-color: var(--bad); } 100% { outline-color: transparent; } }
+.attack-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.skill-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+
 .card {
   --c: var(--muted);
+  position: relative;
   background: var(--bg2);
   border: 2px solid var(--line);
   border-top: 4px solid var(--c);
   border-radius: 10px;
-  padding: 10px 12px;
-  transition: opacity 0.15s, transform 0.15s, border-color 0.15s;
-  min-width: 0;
+  padding: 7px 10px;
+  overflow: hidden;
+  transition: opacity 0.12s, border-color 0.12s, box-shadow 0.12s;
 }
+.card.attack { height: 128px; }
+.card.skill { height: 120px; padding: 6px 8px; }
 .card.el-fire { --c: var(--fire); }
 .card.el-water { --c: var(--water); }
 .card.el-thunder { --c: var(--thunder); }
 .card.el-ice { --c: var(--ice); }
 .card.el-heal { --c: var(--heal); }
-.card.live { border-color: var(--c); transform: translateY(-6px); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px color-mix(in srgb, var(--c) 40%, transparent); }
+.card.el-guard { --c: var(--guard); }
+.card.el-silence { --c: var(--silence); }
+.card.el-pure { --c: var(--pure); }
+.card.el-buff { --c: var(--buff); }
+.card.live { border-color: var(--c); box-shadow: 0 0 16px color-mix(in srgb, var(--c) 45%, transparent); }
 .card.out { opacity: 0.3; }
 
-.card-head { display: flex; justify-content: space-between; align-items: center; }
-.tier { color: var(--accent); font-size: 0.8rem; letter-spacing: -1px; }
-.card-name { font-weight: bold; margin: 6px 0 2px; font-size: 0.95rem; }
-.card-kana { color: var(--muted); font-size: 0.85rem; word-break: break-all; }
+.card-head { display: flex; justify-content: space-between; align-items: center; height: 20px; white-space: nowrap; }
+.card-meta { color: var(--accent); font-size: 0.72rem; }
+.card-name { font-weight: bold; margin-top: 4px; font-size: 0.92rem; height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-kana { color: var(--muted); font-size: 0.8rem; height: 18px; white-space: nowrap; overflow: hidden; }
 .card-kana .done { color: var(--c); }
 .card-romaji {
   font-family: var(--mono);
-  font-size: 1.05rem;
-  margin: 6px 0;
-  word-break: break-all;
-  letter-spacing: 0.02em;
+  font-size: 1rem;
+  height: 24px;
+  line-height: 24px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
 }
+.card.skill .card-romaji { font-size: 0.85rem; }
 .card-romaji .typed { color: var(--c); font-weight: bold; }
 .card-romaji .rest { color: #6a6390; }
 .card.idle .card-romaji .rest { color: #b8b1da; }
 .card.live .card-romaji .rest { color: var(--text); }
-.card-power { font-size: 0.8rem; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.card-power strong { color: var(--text); font-size: 0.95rem; }
+.card-foot { font-size: 0.75rem; color: var(--muted); height: 22px; line-height: 22px; display: flex; gap: 6px; align-items: center; white-space: nowrap; overflow: hidden; }
+.card.skill .card-foot { font-size: 0.68rem; height: 28px; line-height: 14px; white-space: normal; align-items: flex-start; }
+.card-foot strong { color: var(--text); font-size: 0.92rem; }
+
+/* リキャスト・MP不足 */
+.cd-veil {
+  --cd: 0;
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(to top, rgba(10, 8, 18, 0.75) calc(var(--cd) * 100%), rgba(10, 8, 18, 0.45) 0);
+  visibility: hidden;
+}
+.card.disabled .cd-veil { visibility: visible; }
+.cd-text { font-family: var(--mono); font-weight: bold; font-size: 1rem; text-shadow: 0 1px 3px #000; }
 
 .badge {
   display: inline-block;
-  padding: 1px 8px;
+  padding: 0 7px;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   border: 1px solid currentColor;
 }
 .badge.el-fire { color: var(--fire); }
@@ -232,23 +320,29 @@ kbd {
 .badge.el-thunder { color: var(--thunder); }
 .badge.el-ice { color: var(--ice); }
 .badge.el-heal { color: var(--heal); }
+.badge.el-guard { color: var(--guard); }
+.badge.el-silence { color: var(--silence); }
+.badge.el-pure { color: var(--pure); }
+.badge.el-buff { color: var(--buff); }
 
-.tag { font-size: 0.7rem; padding: 0 6px; border-radius: 4px; }
+.tag { font-size: 0.68rem; padding: 0 5px; border-radius: 4px; }
 .tag.weak { background: #ffcf5a33; color: var(--accent); }
 .tag.resist { background: #8f88b033; color: var(--muted); }
 .tag.penalty { background: #ff5a6e33; color: var(--bad); }
 
-.help { color: var(--muted); font-size: 0.8rem; text-align: center; margin-top: 16px; }
+.help { color: var(--muted); font-size: 0.78rem; text-align: center; margin: 12px 0 0; }
 .ime-warning {
   position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
   background: var(--bad); color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: bold;
+  margin: 0; visibility: hidden; z-index: 20;
 }
+.ime-warning.show { visibility: visible; }
 
-/* ---------- エフェクト ---------- */
+/* ---------- エフェクト (絶対配置なのでレイアウトに影響しない) ---------- */
 .fx-layer { position: absolute; inset: 0; pointer-events: none; }
 .float {
   position: absolute;
-  top: 40%;
+  top: 35%;
   transform: translateX(-50%);
   font-weight: 900;
   font-family: var(--mono);
@@ -256,15 +350,17 @@ kbd {
   animation: float-up 1s ease-out both;
   white-space: nowrap;
 }
-.float.dmg { font-size: 2.4rem; color: #fff; }
-.float.dmg.weak { font-size: 3.2rem; color: var(--accent); }
-.float.dmg.resist { font-size: 1.8rem; color: var(--muted); }
-.float.label { top: 25%; font-size: 1.2rem; font-family: inherit; }
+.float.dmg { font-size: 2.2rem; color: #fff; }
+.float.dmg.weak { font-size: 3rem; color: var(--accent); }
+.float.dmg.resist { font-size: 1.7rem; color: var(--muted); }
+.float.label { top: 20%; font-size: 1.2rem; font-family: inherit; }
 .float.label.weak { color: var(--accent); }
 .float.label.resist { color: var(--muted); }
-.float.hurt { top: 0; color: var(--bad); font-size: 1.6rem; }
-.float.hurt.heavy { font-size: 2.2rem; }
-.float.heal { top: 0; color: var(--good); font-size: 1.6rem; }
+.float.label.phase { color: var(--bad); font-size: 1.5rem; }
+.float.hurt { top: 0; color: var(--bad); font-size: 1.5rem; }
+.float.hurt.heavy { font-size: 2.1rem; }
+.float.heal { top: 0; color: var(--good); font-size: 1.5rem; }
+.float.buff { top: 0; color: var(--guard); font-size: 1.1rem; font-family: inherit; }
 
 @keyframes float-up {
   0% { opacity: 0; transform: translate(-50%, 10px) scale(0.6); }
@@ -273,29 +369,20 @@ kbd {
   100% { opacity: 0; transform: translate(-50%, -50px); }
 }
 
-.shake { animation: shake 0.35s; }
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-6px); }
-  40% { transform: translateX(6px); }
-  60% { transform: translateX(-4px); }
-  80% { transform: translateX(3px); }
-}
-
 body.flash::after, body.flash-heavy::after {
   content: "";
   position: fixed; inset: 0;
   pointer-events: none;
   animation: flash 0.4s ease-out both;
 }
-body.flash::after { background: rgba(255, 60, 80, 0.25); }
-body.flash-heavy::after { background: rgba(255, 30, 60, 0.5); }
+body.flash::after { background: rgba(255, 60, 80, 0.2); }
+body.flash-heavy::after { background: rgba(255, 30, 60, 0.45); }
 @keyframes flash { from { opacity: 1; } to { opacity: 0; } }
 
 /* ---------- オーバーレイ ---------- */
 .overlay {
   position: fixed; inset: 0;
-  background: rgba(8, 6, 16, 0.78);
+  background: rgba(8, 6, 16, 0.8);
   display: flex; align-items: center; justify-content: center;
   padding: 16px;
   z-index: 10;
@@ -304,22 +391,49 @@ body.flash-heavy::after { background: rgba(255, 30, 60, 0.5); }
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 24px 32px;
-  max-width: 620px;
+  padding: 20px 28px;
+  max-width: 680px;
   width: 100%;
+  max-height: 100%;
+  overflow: auto;
   text-align: center;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
 }
 .overlay-panel h2 { margin-top: 0; color: var(--accent); }
-.overlay-panel h2.title { font-size: 1.8rem; letter-spacing: 0.1em; }
+.overlay-panel h2.title { font-size: 1.7rem; letter-spacing: 0.1em; }
 .overlay-panel h2.lose { color: var(--bad); }
-.rules { text-align: left; line-height: 1.7; font-size: 0.9rem; padding-left: 1.2em; }
-.stats.result { max-width: 260px; margin: 12px auto; }
-.blink { animation: blink 1.4s ease-in-out infinite; margin-top: 18px; }
+.rules { text-align: left; line-height: 1.8; font-size: 0.86rem; padding-left: 1.2em; }
+.tip { background: #1a1630; border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; }
+.stats.result { max-width: 280px; margin: 12px auto; }
+.blink { animation: blink 1.4s ease-in-out infinite; margin-top: 16px; }
 @keyframes blink { 50% { opacity: 0.45; } }
 
-/* ---------- レスポンシブ ---------- */
-@media (max-width: 820px) {
-  .battlefield { grid-template-columns: 1fr; }
-  .hand { grid-template-columns: repeat(2, 1fr); }
+.diff-select { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+.diff-btn {
+  background: var(--bg2); border: 2px solid var(--line); border-radius: 8px;
+  padding: 8px 14px; font-size: 1rem; font-weight: bold; cursor: pointer; min-width: 110px;
+  font-family: inherit;
+}
+.diff-btn.selected { border-color: currentColor; box-shadow: 0 0 12px color-mix(in srgb, currentColor 40%, transparent); }
+.diff-key { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); margin-right: 6px; }
+.diff-desc { color: var(--muted); font-size: 0.85rem; height: 1.4em; }
+
+.timeline { text-align: left; background: #1a1630; border-radius: 8px; padding: 10px 14px; margin-top: 12px; }
+.timeline h3 { font-size: 0.9rem; margin: 0 0 6px; }
+.tl-row { margin: 4px 0; }
+.tl-phase { font-size: 0.72rem; color: var(--accent); }
+.tl-items { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.tl-arrow { color: var(--muted); font-size: 0.7rem; }
+.tl-item { font-size: 0.75rem; padding: 0 6px; border-radius: 4px; border: 1px solid var(--tc, var(--t-auto)); color: var(--tc, var(--t-auto)); white-space: nowrap; }
+.tl-item.type-raidwide { --tc: var(--t-raidwide); }
+.tl-item.type-buster { --tc: var(--t-buster); }
+.tl-item.type-interruptible { --tc: var(--t-interruptible); }
+.tl-item.type-dot { --tc: var(--t-dot); }
+
+/* ---------- レスポンシブ (狭い画面でも固定高さは維持) ---------- */
+@media (max-width: 860px) {
+  .battlefield { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .enemy-area { height: 300px; }
+  .side { height: 300px; }
+  .skill-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }

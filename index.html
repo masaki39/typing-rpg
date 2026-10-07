@@ -10,20 +10,30 @@
   <div id="app">
     <header class="topbar">
       <h1>呪文詠唱タイピングRPG</h1>
-      <div id="stage-label" class="stage-label"></div>
+      <span id="diff-label" class="diff-label"></span>
+      <span id="stage-label" class="stage-label"></span>
       <button id="sound-toggle" class="sound-toggle" type="button" title="効果音の切り替え">🔊</button>
     </header>
 
     <main class="battlefield">
       <section class="enemy-area" id="enemy-area">
-        <div class="enemy-header">
+        <div class="enemy-top">
           <span id="enemy-element" class="badge"></span>
           <span id="enemy-name" class="enemy-name"></span>
+          <span id="enemy-phase" class="phase-label"></span>
+          <span class="enrage" title="時間切れまで">⏱ <span id="enrage-time" class="num">0:00</span></span>
         </div>
         <div id="enemy-sprite" class="sprite"></div>
-        <div class="bar hp-bar"><div id="enemy-hp-fill" class="fill"></div><span id="enemy-hp-text" class="bar-text"></span></div>
-        <div class="bar timer-bar"><div id="enemy-timer-fill" class="fill"></div><span class="bar-text">次の攻撃</span></div>
-        <div id="enemy-intent" class="intent"></div>
+        <div class="bar hp-bar"><div id="enemy-hp-fill" class="fill"></div><span id="enemy-hp-text" class="bar-text num"></span></div>
+        <div id="boss-cast" class="boss-cast">
+          <div class="boss-cast-head">
+            <span id="cast-type" class="cast-type"></span>
+            <span id="cast-name" class="cast-name"></span>
+            <span id="cast-hint" class="cast-hint"></span>
+          </div>
+          <div class="bar cast-bar"><div id="cast-fill" class="fill"></div><span id="cast-time" class="bar-text num"></span></div>
+        </div>
+        <div id="next-line" class="next-line"></div>
         <div id="enemy-fx" class="fx-layer"></div>
       </section>
 
@@ -36,10 +46,10 @@
         <div class="panel">
           <h2>戦績</h2>
           <dl class="stats">
-            <dt>コンボ</dt><dd id="stat-combo">0</dd>
-            <dt>KPM</dt><dd id="stat-kpm">0</dd>
-            <dt>正確率</dt><dd id="stat-acc">-</dd>
-            <dt>ミス</dt><dd id="stat-miss">0</dd>
+            <dt>コンボ</dt><dd id="stat-combo" class="num">0</dd>
+            <dt>KPM</dt><dd id="stat-kpm" class="num">0</dd>
+            <dt>正確率</dt><dd id="stat-acc" class="num">-</dd>
+            <dt>中断成功</dt><dd id="stat-int" class="num">0</dd>
           </dl>
         </div>
         <ul id="log" class="panel log"></ul>
@@ -47,15 +57,29 @@
     </main>
 
     <section class="player-area" id="player-area">
-      <div class="player-label">勇者 HP</div>
-      <div class="bar hp-bar player"><div id="player-hp-fill" class="fill"></div><span id="player-hp-text" class="bar-text"></span></div>
+      <div class="player-bars">
+        <span class="player-label">HP</span>
+        <div class="bar hp-bar player"><div id="player-hp-fill" class="fill"></div><span id="player-hp-text" class="bar-text num"></span></div>
+        <span class="player-label">MP</span>
+        <div class="bar mp-bar"><div id="player-mp-fill" class="fill"></div><span id="player-mp-text" class="bar-text num"></span></div>
+      </div>
+      <div class="status-row" id="status-row">
+        <span class="status buff" data-status="barrier">🛡️ 障壁 <span class="num"></span></span>
+        <span class="status buff" data-status="regen">💚 再生 <span class="num"></span></span>
+        <span class="status buff" data-status="empower">🔮 増幅</span>
+        <span class="status debuff" data-status="dot">☠️ <span class="label"></span> <span class="num"></span></span>
+        <span class="status debuff" data-status="vuln">💥 <span class="label"></span> <span class="num"></span></span>
+      </div>
       <div id="player-fx" class="fx-layer"></div>
     </section>
 
-    <section id="hand" class="hand" aria-live="polite"></section>
+    <section id="hand" class="hand">
+      <div id="attack-row" class="attack-row"></div>
+      <div id="skill-row" class="skill-row"></div>
+    </section>
 
-    <p class="help">呪文を打ち始めると候補が絞られます／<kbd>Esc</kbd>・<kbd>Backspace</kbd>で詠唱を破棄／入力は<strong>半角英数（IMEオフ）</strong>で</p>
-    <p id="ime-warning" class="ime-warning hidden">IMEがオンになっています。半角英数入力に切り替えてください。</p>
+    <p class="help">打ち始めた文字で呪文が決まります／<kbd>Esc</kbd>・<kbd>Backspace</kbd>で詠唱を破棄／入力は<strong>半角英数（IMEオフ）</strong>で</p>
+    <p id="ime-warning" class="ime-warning">IMEがオンになっています。半角英数入力に切り替えてください。</p>
 
     <div id="overlay" class="overlay">
       <div id="overlay-content" class="overlay-panel"></div>
@@ -65,6 +89,7 @@
   <script src="js/romaji.js"></script>
   <script src="js/battle.js"></script>
   <script src="js/data.js"></script>
+  <script src="js/engine.js"></script>
   <script src="js/sfx.js"></script>
   <script src="js/game.js"></script>
 </body>
