@@ -282,7 +282,7 @@
       const r = Battle.incomingDamage({ base, barrier, vulnMult: p.vuln ? p.vuln.mult : 1 });
       if (r.barrierUsed && Battle.consumesBarrier(ability.type)) {
         p.barrier = null;
-        log('盾がダメージを軽減して砕けた！');
+        log('壁がダメージを軽減して砕けた！');
       }
       p.hp -= r.damage;
       emit('playerHit', { amount: r.damage, abilityType: ability.type, blocked: r.barrierUsed });
@@ -430,7 +430,7 @@
         case 'barrier':
           p.barrier = { reduce: spell.reduce, remaining: spell.duration * 1000 };
           emit('buff', { spell });
-          log(`「${spell.name}」！ 盾を構えた（次の大技を軽減）。`);
+          log(`「${spell.name}」！ 壁を張った（次の大技を軽減）。`);
           break;
         case 'interrupt':
           if (e.cast && e.cast.ability.type === 'interruptible') {

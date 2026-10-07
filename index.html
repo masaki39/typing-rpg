@@ -4,75 +4,110 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>呪文詠唱タイピングRPG</title>
+  <!-- Web フォント (オフラインでも style.css のフォールバックで崩れない) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="app">
     <header class="topbar">
-      <h1>呪文詠唱タイピングRPG</h1>
-      <span id="diff-label" class="diff-label"></span>
-      <span id="stage-label" class="stage-label"></span>
-      <button id="sound-toggle" class="sound-toggle" type="button" title="効果音の切り替え">🔊</button>
+      <div class="brand">
+        <span class="brand-mark">✦</span>
+        <h1>呪文詠唱タイピングRPG</h1>
+      </div>
+      <div class="topbar-right">
+        <span id="diff-label" class="chip"></span>
+        <span id="stage-label" class="stage-label num"></span>
+        <button id="sound-toggle" class="icon-btn" type="button" title="効果音の切り替え">🔊</button>
+      </div>
     </header>
 
-    <main class="battlefield">
-      <section class="enemy-area" id="enemy-area">
-        <div class="enemy-top">
-          <span id="enemy-element" class="badge"></span>
-          <span id="enemy-name" class="enemy-name"></span>
-          <span id="enemy-phase" class="phase-label"></span>
-          <span class="enrage" title="時間切れまで">⏱ <span id="enrage-time" class="num">0:00</span></span>
+    <main class="stage-grid">
+      <section class="panel boss" id="enemy-area">
+        <div class="boss-plate">
+          <div class="boss-title">
+            <span id="enemy-name" class="boss-name"></span>
+            <span id="enemy-phase" class="phase-chip"></span>
+          </div>
+          <div class="enrage" id="enrage" title="時間切れ (全滅技) まで">
+            <span class="enrage-label">ENRAGE</span>
+            <span id="enrage-time" class="enrage-time num">0:00</span>
+          </div>
         </div>
-        <div id="enemy-sprite" class="sprite"></div>
-        <div class="bar hp-bar"><div id="enemy-hp-fill" class="fill"></div><span id="enemy-hp-text" class="bar-text num"></span></div>
-        <div id="boss-cast" class="boss-cast">
-          <div class="boss-cast-head">
+        <div class="gauge-track boss-hp">
+          <div id="enemy-hp-fill" class="gauge-fill"></div>
+          <span id="enemy-hp-text" class="gauge-text num"></span>
+        </div>
+        <div class="boss-body">
+          <div class="boss-aura"></div>
+          <div id="enemy-sprite" class="sprite"></div>
+          <div id="enemy-fx" class="fx-layer"></div>
+        </div>
+        <div id="boss-cast" class="castbar">
+          <div class="castbar-head">
             <span id="cast-type" class="cast-type"></span>
             <span id="cast-name" class="cast-name"></span>
-            <span id="cast-hint" class="cast-hint"></span>
+            <span id="cast-time" class="cast-time num"></span>
           </div>
-          <div class="bar cast-bar"><div id="cast-fill" class="fill"></div><span id="cast-time" class="bar-text num"></span></div>
+          <div class="castbar-track"><div id="cast-fill" class="castbar-fill"></div></div>
+          <div id="cast-hint" class="cast-hint"></div>
         </div>
-        <div id="next-line" class="next-line"></div>
-        <div id="enemy-fx" class="fx-layer"></div>
       </section>
 
       <aside class="side">
-        <div class="panel element-chart">
-          <h2>属性相性</h2>
-          <p class="chart">💧水 → 🔥火 → ❄️氷 → ⚡雷 → 💧水</p>
-          <p class="note">矢印の先に<strong>2倍</strong>／同属性は<strong>半減</strong></p>
-        </div>
-        <div class="panel">
-          <h2>戦績</h2>
-          <dl class="stats">
-            <dt>コンボ</dt><dd id="stat-combo" class="num">0</dd>
-            <dt>KPM</dt><dd id="stat-kpm" class="num">0</dd>
-            <dt>正確率</dt><dd id="stat-acc" class="num">-</dd>
-            <dt>中断成功</dt><dd id="stat-int" class="num">0</dd>
+        <section class="panel timeline-panel">
+          <h2 class="panel-title">Timeline</h2>
+          <ol id="timeline-list" class="tl-list"></ol>
+        </section>
+        <section class="panel stats-panel">
+          <dl class="stat-grid">
+            <div><dt>COMBO</dt><dd id="stat-combo" class="num">0</dd></div>
+            <div><dt>KPM</dt><dd id="stat-kpm" class="num">0</dd></div>
+            <div><dt>ACC</dt><dd id="stat-acc" class="num">-</dd></div>
+            <div><dt>中断</dt><dd id="stat-int" class="num">0</dd></div>
           </dl>
-        </div>
-        <ul id="log" class="panel log"></ul>
+        </section>
+        <section class="panel log-panel">
+          <ul id="log" class="log"></ul>
+        </section>
       </aside>
     </main>
 
-    <section class="player-area" id="player-area">
-      <div class="player-bars">
-        <span class="player-label">HP</span>
-        <div class="bar hp-bar player"><div id="player-hp-fill" class="fill"></div><span id="player-hp-text" class="bar-text num"></span></div>
-        <span class="player-label">MP</span>
-        <div class="bar mp-bar"><div id="player-mp-fill" class="fill"></div><span id="player-mp-text" class="bar-text num"></span></div>
+    <section class="party" id="player-area">
+      <div class="party-gauges">
+        <div class="gauge hp">
+          <span class="gauge-label">HP</span>
+          <div class="gauge-track"><div id="player-hp-fill" class="gauge-fill"></div></div>
+          <span id="player-hp-text" class="gauge-num num"></span>
+        </div>
+        <div class="gauge mp">
+          <span class="gauge-label">MP</span>
+          <div class="gauge-track"><div id="player-mp-fill" class="gauge-fill"></div></div>
+          <span id="player-mp-text" class="gauge-num num"></span>
+        </div>
       </div>
       <div class="status-row" id="status-row">
-        <span class="status buff" data-status="barrier">🛡️ 盾 <span class="num"></span></span>
-        <span class="status buff" data-status="regen">💚 再生 <span class="num"></span></span>
-        <span class="status buff" data-status="empower">🔮 増幅</span>
-        <span class="status buff" data-status="ward">💠 加護 <span class="num"></span></span>
-        <span class="status buff" data-status="silenceReady">🤐 構え <span class="num"></span></span>
-        <span class="status debuff" data-status="dot">☠️ <span class="label"></span> <span class="num"></span></span>
-        <span class="status debuff" data-status="vuln">💥 <span class="label"></span> <span class="num"></span></span>
+        <span class="status buff" data-status="barrier"><i>◆</i>壁 <span class="num"></span></span>
+        <span class="status buff" data-status="regen"><i>✚</i>再生 <span class="num"></span></span>
+        <span class="status buff" data-status="empower"><i>▲</i>漲り</span>
+        <span class="status buff" data-status="ward"><i>❖</i>加護 <span class="num"></span></span>
+        <span class="status buff" data-status="silenceReady"><i>✕</i>構え <span class="num"></span></span>
+        <span class="status debuff" data-status="dot"><i>☠</i><span class="label"></span> <span class="num"></span></span>
+        <span class="status debuff" data-status="vuln"><i>!</i><span class="label"></span> <span class="num"></span></span>
       </div>
       <div id="player-fx" class="fx-layer"></div>
+    </section>
+
+    <!-- 詠唱ライン: 入力中の呪文を大きく表示する (視認性最優先) -->
+    <section class="chant" id="chant">
+      <div class="chant-meta">
+        <span id="chant-name" class="chant-name"></span>
+        <span id="chant-candidates" class="chant-candidates"></span>
+      </div>
+      <div class="chant-romaji num"><span id="chant-typed" class="typed"></span><span id="chant-rest" class="rest"></span></div>
+      <div id="chant-kana" class="chant-kana"></div>
     </section>
 
     <section id="hand" class="hand">
@@ -81,15 +116,15 @@
         <button id="redraw-tile" class="redraw-tile" type="button" title="攻撃呪文3枠を引き直す">
           <span class="redraw-icon">↻</span>
           <span class="redraw-label">引き直し</span>
-          <kbd>Tab</kbd>
+          <kbd>Space</kbd>
           <span id="redraw-cost" class="redraw-cost num"></span>
           <span class="cd-veil"><span id="redraw-cd" class="cd-text num"></span></span>
         </button>
       </div>
-      <div id="skill-row" class="skill-row"></div>
+      <div id="skill-row" class="hotbar"></div>
     </section>
 
-    <p class="help">打ち始めた文字で呪文が決まります／<kbd>Esc</kbd>・<kbd>Backspace</kbd>で詠唱を破棄／<kbd>Tab</kbd>で攻撃呪文を引き直し／入力は<strong>半角英数（IMEオフ）</strong>で</p>
+    <p class="help">打ち始めた文字で呪文が決まる ／ <kbd>Backspace</kbd> 詠唱を破棄 ／ <kbd>Space</kbd> 攻撃呪文を引き直し ／ 入力は<strong>半角英数（IMEオフ）</strong></p>
     <p id="ime-warning" class="ime-warning">IMEがオンになっています。半角英数入力に切り替えてください。</p>
 
     <div id="overlay" class="overlay">

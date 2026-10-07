@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  const { ENEMIES, ELEMENTS, DIFFICULTIES, DIFFICULTY_ORDER, ABILITY_TYPES, HAND } = window.GameData;
+  const { ENEMIES, KINDS, DIFFICULTIES, DIFFICULTY_ORDER, ABILITY_TYPES, HAND } = window.GameData;
   const { Battle, Sfx } = window;
   const engine = window.Engine.createEngine({ difficulty: loadDifficulty() });
   const state = engine.state;
@@ -14,11 +14,11 @@
   const $ = (id) => document.getElementById(id);
   const dom = {
     diffLabel: $('diff-label'), stageLabel: $('stage-label'), sound: $('sound-toggle'),
-    enemyName: $('enemy-name'), enemyElement: $('enemy-element'), enemyPhase: $('enemy-phase'),
-    enrageTime: $('enrage-time'), enemySprite: $('enemy-sprite'),
+    enemyName: $('enemy-name'), enemyPhase: $('enemy-phase'),
+    enrage: $('enrage'), enrageTime: $('enrage-time'), enemySprite: $('enemy-sprite'),
     enemyHpFill: $('enemy-hp-fill'), enemyHpText: $('enemy-hp-text'),
     bossCast: $('boss-cast'), castType: $('cast-type'), castName: $('cast-name'), castHint: $('cast-hint'),
-    castFill: $('cast-fill'), castTime: $('cast-time'), nextLine: $('next-line'), enemyFx: $('enemy-fx'),
+    castFill: $('cast-fill'), castTime: $('cast-time'), timelineList: $('timeline-list'), enemyFx: $('enemy-fx'),
     playerHpFill: $('player-hp-fill'), playerHpText: $('player-hp-text'),
     playerMpFill: $('player-mp-fill'), playerMpText: $('player-mp-text'),
     statusRow: $('status-row'), playerFx: $('player-fx'),
@@ -26,7 +26,10 @@
     log: $('log'), hand: $('hand'), attackRow: $('attack-row'), skillRow: $('skill-row'),
     overlay: $('overlay'), overlayContent: $('overlay-content'), imeWarning: $('ime-warning'),
     redrawTile: $('redraw-tile'), redrawCost: $('redraw-cost'), redrawCd: $('redraw-cd'),
+    chant: $('chant'), chantName: $('chant-name'), chantCandidates: $('chant-candidates'),
+    chantTyped: $('chant-typed'), chantRest: $('chant-rest'), chantKana: $('chant-kana'),
   };
+  const TIMELINE_ROWS = 4;
 
   // UI 側の状態 (一時停止とタイトルの難易度選択)
   const ui = { paused: false, selected: DIFFICULTY_ORDER.indexOf(state.difficulty), log: [] };
@@ -50,10 +53,8 @@
     try { localStorage.setItem('typing-rpg:difficulty', v); } catch (e) { /* noop */ }
   }
 
-  function elementBadge(element) {
-    const el = ELEMENTS[element];
-    return `<span class="badge el-${element}">${el.icon}${el.name}</span>`;
-  }
+  /** カードの色分けクラス (攻撃は★帯、支援は種類) */
+  const cardClass = (spell) => (spell.role === 'attack' ? `tier-${spell.tier}` : `kind-${spell.kind}`);
 
   // ---------- 手札 ----------
 
@@ -68,7 +69,7 @@
       const node = document.createElement('article');
       node.className = `card ${spell.role === 'attack' ? 'attack' : 'skill'}`;
       node.innerHTML = `
-        <header class="card-head"><span class="slot-badge"></span><span class="card-meta num"></span></header>
+        <header class="card-head"><span class="card-badge"></span><span class="card-meta num"></span></header>
         <div class="card-name"></div>
         <div class="card-kana"></div>
         <div class="card-romaji"><span class="typed"></span><span class="rest"></span></div>
@@ -78,7 +79,7 @@
       (spell.role === 'attack' ? dom.attackRow : dom.skillRow).appendChild(node);
       const q = (sel) => node.querySelector(sel);
       return {
-        node, spellId: null, badge: q('.slot-badge'), meta: q('.card-meta'), name: q('.card-name'),
+        node, spellId: null, badge: q('.card-badge'), meta: q('.card-meta'), name: q('.card-name'),
         kana: q('.card-kana'), typed: q('.typed'), rest: q('.rest'), foot: q('.card-foot'),
         veil: q('.cd-veil'), cdText: q('.cd-text'), wear: q('.wear'), i,
       };
@@ -88,12 +89,11 @@
   function cardFooter(spell, c, live) {
     if (spell.role !== 'attack') return escapeHtml(spell.desc);
     const p = state.player;
-    const mult = Battle.elementMultiplier(spell.element, state.enemy.element);
-    let v = spell.value * mult * (p.empower ? p.empower.mult : 1);
+    let v = spell.value * (p.empower ? p.empower.mult : 1);
     if (live && c.started) v *= Battle.missMultiplier(c.misses);
-    const tag = mult > 1 ? '<span class="tag weak">弱点×2</span>' : mult < 1 ? '<span class="tag resist">耐性×½</span>' : '';
+    const boost = p.empower ? `<span class="tag boost">漲り×${p.empower.mult}</span>` : '';
     const pen = live && c.started && c.misses ? `<span class="tag penalty">ミス${c.misses}</span>` : '';
-    return `威力 <strong class="num">${Math.round(v)}</strong>${tag}${pen}`;
+    return `威力 <strong>${Math.round(v)}</strong>${boost}${pen}`;
   }
 
   function renderHand() {
@@ -107,14 +107,17 @@
       const live = c.live.includes(i);
       if (n.spellId !== spell.id) {
         n.spellId = spell.id;
-        // className を丸ごと書き換えると演出用クラス (renew 等) が消えるので属性クラスだけ差し替える
-        n.node.classList.remove(...[...n.node.classList].filter((cls) => cls.startsWith('el-')));
-        n.node.classList.add(`el-${spell.element}`);
-        n.badge.innerHTML = elementBadge(spell.element);
+        // className を丸ごと書き換えると演出用クラス (renew 等) が消えるので色分けクラスだけ差し替える
+        n.node.classList.remove(...[...n.node.classList].filter((cls) => /^(tier|kind)-/.test(cls)));
+        n.node.classList.add(cardClass(spell));
+        n.badge.innerHTML = spell.role === 'attack'
+          ? `<span class="card-tier">${'★'.repeat(spell.tier)}</span>`
+          : `<i class="card-icon">${KINDS[spell.kind].icon}</i>`;
         n.name.textContent = spell.name;
-        n.meta.textContent = spell.role === 'attack'
-          ? `${'★'.repeat(spell.tier)} ${spell.mpGain ? `MP+${spell.mpGain}` : `MP${spell.mp}`}`
-          : `MP${spell.mp}${spell.cd ? ` / ${spell.cd}s` : ''}`;
+        n.node.title = spell.desc || '';
+        n.meta.innerHTML = spell.role === 'attack'
+          ? (spell.mpGain ? `<span class="gain">MP+${spell.mpGain}</span>` : `<span class="mp">MP ${spell.mp}</span>`)
+          : `<span class="mp">MP ${spell.mp}</span>${spell.cd ? ` · ${spell.cd}s` : ''}`;
       }
       const status = !c.started ? 'idle' : live ? 'live' : 'out';
       n.node.classList.toggle('idle', status === 'idle');
@@ -127,7 +130,31 @@
       n.foot.innerHTML = cardFooter(spell, c, live);
       if (spell.role === 'attack') renderWear(n, state.attackAge[i]);
     });
+    renderChant();
     renderCooldowns();
+  }
+
+  /** 詠唱ライン: 入力中の呪文を大きく表示 (候補が複数なら先頭の候補で表示) */
+  function renderChant() {
+    const c = state.cast;
+    const list = engine.cards();
+    const active = c.started && c.live.length > 0;
+    dom.chant.classList.toggle('active', active);
+    if (!active) {
+      dom.chantName.textContent = '詠唱待機';
+      dom.chantCandidates.textContent = '打ち始めた文字で呪文が決まる';
+      dom.chantTyped.textContent = '';
+      dom.chantRest.textContent = '— 呪文を唱えよ —';
+      dom.chantKana.textContent = '';
+      return;
+    }
+    const i = c.live[0];
+    const m = c.matchers[i];
+    dom.chantName.textContent = c.live.length === 1 ? list[i].name : `${list[i].name} ほか`;
+    dom.chantCandidates.textContent = c.live.length === 1 ? (c.misses ? `ミス ${c.misses}` : '') : `候補 ${c.live.length}`;
+    dom.chantTyped.textContent = m.typed;
+    dom.chantRest.textContent = m.remaining;
+    dom.chantKana.innerHTML = `<span class="done">${escapeHtml(m.text.slice(0, m.pos))}</span>${escapeHtml(m.text.slice(m.pos))}`;
   }
 
   /** 風化の進み具合 (使われずに過ぎた詠唱回数) */
@@ -177,12 +204,10 @@
     const e = state.enemy;
     const d = DIFFICULTIES[state.difficulty];
     dom.diffLabel.textContent = d.label;
-    dom.diffLabel.className = `diff-label diff-${state.difficulty}`;
+    dom.diffLabel.className = `chip diff-${state.difficulty}`;
     if (!e) return;
-    dom.stageLabel.textContent = `STAGE ${state.stage + 1} / ${ENEMIES.length}`;
+    dom.stageLabel.textContent = `STAGE ${state.stage + 1}/${ENEMIES.length}`;
     dom.enemyName.textContent = e.name;
-    dom.enemyElement.className = `badge el-${e.element}`;
-    dom.enemyElement.textContent = `${ELEMENTS[e.element].icon}${ELEMENTS[e.element].name}`;
     dom.enemySprite.textContent = e.def.sprite;
   }
 
@@ -193,32 +218,31 @@
 
     dom.enemySprite.classList.toggle('dead', e.hp <= 0);
     dom.enemyHpFill.style.width = `${(e.hp / e.maxHp) * 100}%`;
-    dom.enemyHpText.textContent = `${Math.ceil(e.hp)} / ${e.maxHp}`;
+    dom.enemyHpText.textContent = `${Math.ceil(e.hp)} / ${e.maxHp}  (${Math.ceil((e.hp / e.maxHp) * 100)}%)`;
     const phaseName = e.def.phases.length > 1 ? (e.def.phases[e.phaseIndex].name || 'フェーズ1') : '';
     dom.enemyPhase.textContent = phaseName;
     dom.enemyPhase.style.visibility = phaseName ? 'visible' : 'hidden';
     dom.enrageTime.textContent = fmtClock(e.enrageLeft);
-    dom.enrageTime.parentElement.classList.toggle('danger', e.enrageLeft < 20000);
+    dom.enrage.classList.toggle('danger', e.enrageLeft < 20000);
 
     const cast = e.cast;
     if (cast) {
       const type = ABILITY_TYPES[cast.ability.type];
-      dom.bossCast.className = `boss-cast casting type-${cast.ability.type}`;
+      dom.bossCast.className = `castbar casting type-${cast.ability.type}`;
       dom.castType.textContent = type.label;
       dom.castName.textContent = cast.ability.name;
       dom.castHint.textContent = type.hint;
       dom.castFill.style.width = `${Math.min(1, cast.elapsed / cast.duration) * 100}%`;
       dom.castTime.textContent = fmtSec(cast.duration - cast.elapsed);
     } else {
-      dom.bossCast.className = 'boss-cast';
+      dom.bossCast.className = 'castbar';
       dom.castType.textContent = '待機';
-      dom.castName.textContent = '…';
+      dom.castName.textContent = '—';
       dom.castHint.textContent = '';
       dom.castFill.style.width = '0%';
       dom.castTime.textContent = '';
     }
-    const next = DIFFICULTIES[state.difficulty].showNext ? engine.upcoming(2) : [];
-    dom.nextLine.textContent = next.length ? `NEXT ▸ ${next.map((a) => a.name).join(' ▸ ')}` : '';
+    renderTimeline();
 
     dom.playerHpFill.style.width = `${(Math.max(0, p.hp) / p.maxHp) * 100}%`;
     dom.playerHpFill.classList.toggle('low', p.hp / p.maxHp <= 0.3);
@@ -239,6 +263,29 @@
 
     renderCooldowns();
     renderStats();
+  }
+
+  /** タイムライン: 詠唱中の技 + 次の技 (Hard 以上は次の技を伏せる) */
+  function renderTimeline() {
+    const e = state.enemy;
+    if (dom.timelineList.children.length !== TIMELINE_ROWS) {
+      dom.timelineList.innerHTML = '<li><span class="tl-marker"></span><span class="tl-name"></span><span class="tl-type"></span></li>'.repeat(TIMELINE_ROWS);
+    }
+    const rows = [];
+    if (e.cast) rows.push({ ability: e.cast.ability, now: true });
+    const showNext = DIFFICULTIES[state.difficulty].showNext;
+    for (const ability of engine.upcoming(TIMELINE_ROWS)) {
+      if (rows.length >= TIMELINE_ROWS) break;
+      rows.push(showNext ? { ability } : { unknown: true });
+    }
+    [...dom.timelineList.children].forEach((li, i) => {
+      const r = rows[i];
+      const [marker, name, type] = li.children;
+      li.className = !r ? 'empty' : r.unknown ? 'unknown' : `type-${r.ability.type}${r.now ? ' now' : ''}`;
+      marker.textContent = !r ? '' : r.now ? '▶' : '•';
+      name.textContent = !r ? '' : r.unknown ? '？？？' : r.ability.name;
+      type.textContent = r && !r.unknown ? ABILITY_TYPES[r.ability.type].label : '';
+    });
   }
 
   function renderStats() {
@@ -293,6 +340,7 @@
   // ---------- オーバーレイ ----------
 
   function showOverlay(html) {
+    ui.overlayAt = performance.now();
     dom.overlayContent.innerHTML = html;
     dom.overlay.classList.remove('hidden');
   }
@@ -312,14 +360,15 @@
     const sel = DIFFICULTIES[DIFFICULTY_ORDER[ui.selected]];
     showOverlay(`
       <h2 class="title">呪文詠唱タイピングRPG</h2>
+      <p class="subtitle">TYPE · CHANT · SURVIVE</p>
       <p>呪文を<strong>ローマ字で詠唱</strong>し、ボスの技に対応しながら倒そう。</p>
       <ul class="rules">
         <li><strong>攻撃</strong>：★は MP 回復、★★★は高威力だが MP を大きく消費。</li>
-        <li><strong>ボスの詠唱バー</strong>を見て対応：<span class="tl-item type-buster">タンクバスター</span>は<strong>守りの盾</strong>、
-          <span class="tl-item type-interruptible">中断可能</span>は<strong>黙れ</strong>、<span class="tl-item type-dot">継続ダメージ</span>は<strong>浄化</strong>、
+        <li><strong>ボスの詠唱バー</strong>を見て対応：<span class="tl-item type-buster">タンクバスター</span>は<strong>守りの壁</strong>、
+          <span class="tl-item type-interruptible">中断可能</span>は<strong>黙せよ</strong>、<span class="tl-item type-dot">継続ダメージ</span>は<strong>清め</strong>、
           <span class="tl-item type-raidwide">全体攻撃</span>の後は回復。</li>
-        <li>被弾しても詠唱には影響しない。<strong>盾・黙れ・浄化は先行入力OK</strong>。着弾前に間に合わせよう。</li>
-        <li>⏱ が 0 になると<strong>時間切れ（全滅技）</strong>。守ってばかりでは勝てない。</li>
+        <li>被弾しても詠唱には影響しない。<strong>壁・黙せよ・清めは先行入力OK</strong>。着弾前に間に合わせよう。</li>
+        <li><strong>ENRAGE</strong> が 0 になると時間切れ（全滅技）。守ってばかりでは勝てない。</li>
       </ul>
       <div class="diff-select">${buttons}</div>
       <p class="diff-desc">${escapeHtml(sel.desc)}</p>
@@ -377,10 +426,10 @@
     const r = state.result;
     const hit = state.lastHit;
     if (r.reason === 'enrage') return '時間切れ。回復や防御に偏りすぎず、MPを循環させて火力を出そう。';
-    if (r.reason === 'dot') return '継続ダメージで倒れた。詠唱バーが出たら先に「浄化」を唱えれば加護で防げる。';
+    if (r.reason === 'dot') return '継続ダメージで倒れた。詠唱バーが出たら先に「清め」を唱えれば加護で防げる。';
     if (!hit) return '';
-    if (hit.type === 'buster') return `「${hit.name}」はタンクバスター。着弾前に「守りの盾」を。直前の全体攻撃で盾が消費されないよう注意。`;
-    if (hit.type === 'interruptible' || state.player.vuln) return '中断可能技は「黙れ」で止めよう。NEXT に見えたら先に唱えて構えておける。';
+    if (hit.type === 'buster') return `「${hit.name}」はタンクバスター。着弾前に「守りの壁」を。直前の全体攻撃で壁が消費されないよう注意。`;
+    if (hit.type === 'interruptible' || state.player.vuln) return '中断可能技は「黙せよ」で止めよう。タイムラインに見えたら先に唱えて構えておける。';
     if (hit.type === 'raidwide') return '全体攻撃の前にHPを戻しておこう。「再生の祈り」は先に置いておくと効率的。';
     return 'HPが減ったら早めに回復しよう。';
   }
@@ -426,15 +475,13 @@
           break;
         case 'miss':
           Sfx.miss();
-          retrigger(dom.hand, 'miss-flash');
+          retrigger(dom.chant, 'miss', 300);
           handDirty = true;
           break;
         case 'enemyHit':
-          floatText(dom.enemyFx, String(ev.amount), `dmg ${ev.tag}`);
-          if (ev.tag === 'weak') floatText(dom.enemyFx, '弱点！', 'label weak', 120);
-          if (ev.tag === 'resist') floatText(dom.enemyFx, 'いまひとつ…', 'label resist', 120);
-          retrigger(dom.enemySprite, `hit-${ev.element}`);
-          Sfx.cast(ev.tag === 'weak');
+          floatText(dom.enemyFx, String(ev.amount), ev.tier === 3 || ev.empowered ? 'dmg big' : 'dmg');
+          retrigger(dom.enemySprite, 'hit');
+          Sfx.cast(ev.tier === 3);
           handDirty = true;
           break;
         case 'heal':
@@ -452,13 +499,13 @@
           Sfx.heal();
           break;
         case 'interrupted':
-          floatText(dom.enemyFx, '中断！', 'label weak');
+          floatText(dom.enemyFx, '中断！', 'label good');
           Sfx.cast(true);
           handDirty = true;
           break;
         case 'playerHit': {
           const heavy = ev.abilityType !== 'auto' && ev.abilityType !== 'dot';
-          floatText(dom.playerFx, `-${ev.amount}${ev.blocked ? ' 🛡️' : ''}`, heavy ? 'hurt heavy' : 'hurt');
+          floatText(dom.playerFx, `-${ev.amount}${ev.blocked ? ' ◆' : ''}`, heavy ? 'hurt heavy' : 'hurt');
           retrigger(document.body, heavy && !ev.blocked ? 'flash-heavy' : 'flash');
           retrigger(dom.enemySprite, 'lunge');
           Sfx.hurt(heavy);
@@ -546,9 +593,10 @@
     const key = e.key;
     const confirm = key === ' ' || key === 'Enter';
 
-    if (key === 'Tab') e.preventDefault(); // フォーカス移動させない
     if (state.phase === 'battle' && !ui.paused) {
-      if (key === 'Tab') {
+      if (key === ' ') {
+        // 引き直し (親指。左手小指の Tab から変更)
+        e.preventDefault();
         if (!e.repeat) tryRedraw();
       } else if (key === 'Escape' || key === 'Backspace') {
         e.preventDefault();
@@ -560,14 +608,15 @@
         engine.key(key.toLowerCase());
         flushEvents();
         renderStats();
-      } else if (confirm) {
+      } else if (key === 'Enter') {
         e.preventDefault();
       }
       return;
     }
 
     if (confirm) e.preventDefault();
-    if (e.repeat) return;
+    // 戦闘中の Space (引き直し) を押し続けた勢いで結果画面を飛ばさないよう少し待つ
+    if (e.repeat || performance.now() - (ui.overlayAt || 0) < 500) return;
     if (ui.paused) {
       if (confirm) resume();
       return;
@@ -623,5 +672,12 @@
   requestAnimationFrame(frame);
 
   // デバッグ・自動検証用
-  window.TypingRPG = { engine };
+  window.TypingRPG = {
+    engine,
+    refresh({ clearLog = false } = {}) {
+      if (clearLog) ui.log = [];
+      flushEvents();
+      buildCards(); renderStatic(); renderHand(); renderFrame(); renderLog();
+    },
+  };
 })();
