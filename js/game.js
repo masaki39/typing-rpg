@@ -64,7 +64,7 @@
     enrage: $('enrage'), enrageTime: $('enrage-time'), enemySprite: $('enemy-sprite'),
     enemyHpFill: $('enemy-hp-fill'), enemyHpLag: $('enemy-hp-lag'), enemyHpText: $('enemy-hp-text'),
     bossCast: $('boss-cast'), castType: $('cast-type'), castName: $('cast-name'), castHint: $('cast-hint'),
-    castFill: $('cast-fill'), castTime: $('cast-time'), timelineList: $('timeline-list'), enemyFx: $('enemy-fx'),
+    castFill: $('cast-fill'), castTime: $('cast-time'), timelineList: $('timeline-list'), tlHidden: $('tl-hidden'), enemyFx: $('enemy-fx'),
     playerHpFill: $('player-hp-fill'), playerHpLag: $('player-hp-lag'), playerHpText: $('player-hp-text'),
     playerMpFill: $('player-mp-fill'), playerMpText: $('player-mp-text'),
     statusRow: $('status-row'), playerFx: $('player-fx'),
@@ -171,14 +171,13 @@
         <div class="card-kana"></div>
         <div class="card-romaji"><span class="typed"></span><span class="rest"></span></div>
         <footer class="card-foot"></footer>
-        <div class="wear" title="使わずにいると風化して入れ替わる"></div>
         <div class="cd-veil"><span class="cd-text num"></span></div>`;
       (spell.role === 'attack' ? dom.attackRow : dom.skillRow).appendChild(node);
       const q = (sel) => node.querySelector(sel);
       return {
         node, spellId: null, badge: q('.card-badge'), meta: q('.card-meta'), name: q('.card-name'),
         kana: q('.card-kana'), typed: q('.typed'), rest: q('.rest'), foot: q('.card-foot'),
-        veil: q('.cd-veil'), cdText: q('.cd-text'), wear: q('.wear'), i,
+        veil: q('.cd-veil'), cdText: q('.cd-text'), i,
       };
     });
   }
@@ -225,7 +224,6 @@
       n.typed.textContent = live ? m.typed : '';
       n.rest.textContent = live ? m.remaining : spell.romaji;
       n.foot.innerHTML = cardFooter(spell, c, live);
-      if (spell.role === 'attack') renderWear(n, state.attackAge[i]);
     });
     renderChant();
     renderCooldowns();
@@ -252,14 +250,6 @@
     dom.chantTyped.textContent = m.typed;
     dom.chantRest.textContent = m.remaining;
     dom.chantKana.innerHTML = `<span class="done">${escapeHtml(m.text.slice(0, m.pos))}</span>${escapeHtml(m.text.slice(m.pos))}`;
-  }
-
-  /** 風化の進み具合 (使われずに過ぎた詠唱回数) */
-  function renderWear(n, age) {
-    const limit = HAND.weatherAfter;
-    for (let k = 0; k <= limit; k++) n.node.classList.toggle(`wear-${k}`, k === age);
-    n.wear.textContent = `${'●'.repeat(age)}${'○'.repeat(Math.max(0, limit - age))}`;
-    n.wear.title = `あと${limit - age}回ほかの呪文を唱えると風化して入れ替わる`;
   }
 
   function renderRedraw() {
@@ -387,6 +377,7 @@
     const rows = [];
     if (e.cast) rows.push({ ability: e.cast.ability, now: true });
     const showNext = DIFFICULTIES[state.difficulty].showNext;
+    dom.tlHidden.hidden = showNext;
     for (const ability of engine.upcoming(TIMELINE_ROWS)) {
       if (rows.length >= TIMELINE_ROWS) break;
       rows.push(showNext ? { ability } : { unknown: true });
@@ -599,8 +590,7 @@
           <div class="demo-card tier-3"><b>★★★</b><span>長い・高威力・MP 40</span></div>
         </div>
         <ul class="rules">
-          <li>上段の攻撃呪文は使うたびに入れ替わります。<strong>★で MP を貯めて★★★を撃つ</strong>のが基本の流れ。</li>
-          <li>使わずに他の呪文を 5 回唱えると、そのカードは<strong>風化</strong>して別の呪文に変わります（右下の ●○）。</li>
+          <li>上段の攻撃呪文は<strong>使った枠だけ</strong>入れ替わります。<strong>★で MP を貯めて★★★を撃つ</strong>のが基本の流れ。</li>
           <li>撃てるカードがないときは <kbd>Space</kbd> で攻撃 3 枚を<strong>引き直し</strong>（MP 5・8 秒に 1 回）。</li>
           <li>下段の支援呪文 6 枚は常に並びます。MP とリキャスト（再使用までの時間）に注意。</li>
         </ul>`,
@@ -932,7 +922,8 @@
       <h2>一時停止中</h2>
       <p class="kicker">STAGE ${state.stage + 1} ・ ${escapeHtml(state.enemy.name)} ・ ${DIFFICULTIES[state.difficulty].label}</p>
       <div class="menu-col">${items}</div>
-      <p class="hint"><kbd>↑</kbd><kbd>↓</kbd> 選択 ・ <kbd>Space</kbd> 決定 ・ <kbd>Esc</kbd> 再開</p>`, 'pause-panel');
+      <p class="hint"><kbd>↑</kbd><kbd>↓</kbd> 選択 ・ <kbd>Space</kbd> 決定 ・ <kbd>Esc</kbd> 再開</p>
+      ${timelineHtml(state.enemy.def)}`, 'pause-panel');
     bindActions(pauseActions());
   }
 
@@ -1012,13 +1003,6 @@
           retrigger(dom.enemySprite, 'lunge');
           if (heavy) shake(ev.blocked ? 'small' : 'big');
           sfx('hurt', heavy);
-          handDirty = true;
-          break;
-        }
-        case 'weathered': {
-          const n = cardNodes[ev.slot];
-          if (n) retrigger(n.node, 'renew', 700);
-          sfx('weather');
           handDirty = true;
           break;
         }

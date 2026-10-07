@@ -313,6 +313,9 @@ kbd {
 .tl-list li .tl-name { overflow: hidden; text-overflow: ellipsis; }
 .tl-list li .tl-type { font-size: 0.66rem; color: var(--tc); }
 .tl-list li.unknown { color: var(--text-faint); }
+.tl-hidden { margin-left: 8px; font-family: var(--font-body, inherit); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.04em; color: var(--text-dim); border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; vertical-align: 1px; }
+.tl-hidden[hidden] { display: none; }
+.pause-panel .timeline { max-width: 520px; margin-inline: auto; }
 .tl-list .type-raidwide, .tl-item.type-raidwide { --tc: var(--a-raidwide); }
 .tl-list .type-buster, .tl-item.type-buster { --tc: var(--a-buster); }
 .tl-list .type-interruptible, .tl-item.type-interruptible { --tc: var(--a-interruptible); }
@@ -478,23 +481,6 @@ kbd {
 .card.disabled { filter: grayscale(0.85) brightness(0.85); }
 .cd-text { font-weight: 700; font-size: 1.05rem; text-shadow: 0 1px 3px #000; }
 
-/* 風化: 使われずに残るほど色あせ、ひびが入る (絶対配置・filter のみでサイズは不変) */
-.wear { position: absolute; right: 9px; bottom: 6px; font-size: 0.5rem; letter-spacing: 2px; color: var(--text-faint); pointer-events: none; }
-.card.skill .wear { display: none; }
-.card.attack::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0;
-  background:
-    linear-gradient(115deg, transparent 46%, rgba(30, 20, 8, 0.55) 47%, transparent 48.5%),
-    linear-gradient(60deg, transparent 62%, rgba(30, 20, 8, 0.45) 63%, transparent 64%),
-    radial-gradient(ellipse at 80% 90%, rgba(140, 100, 40, 0.3), transparent 60%);
-  transition: opacity 0.3s;
-}
-.card.wear-3 .wear { color: #b8915a; }
-.card.wear-4 .wear { color: var(--warn); }
-.card.wear-3::after { opacity: 0.45; }
-.card.wear-4::after { opacity: 0.9; }
-.card.wear-3:not(.disabled) { filter: sepia(0.3); }
-.card.wear-4:not(.disabled) { filter: sepia(0.6) brightness(0.9); }
 .card.renew { animation: renew 0.7s ease-out; }
 @keyframes renew {
   0% { opacity: 0.1; filter: sepia(1) blur(3px); }

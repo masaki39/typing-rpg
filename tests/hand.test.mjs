@@ -21,30 +21,17 @@ function castCard(engine, idOrIndex) {
   for (const ch of list[i].romaji) engine.key(ch);
 }
 
-test('使われないカードは一定回数で風化して入れ替わる', () => {
-  const engine = setup();
-  const s = engine.state;
-  const stale = s.attackHand[2];
-  for (let n = 1; n < HAND.weatherAfter; n++) {
-    castCard(engine, 0);
-    assert.equal(s.attackHand[2], stale, `${n}回目ではまだ残る`);
-    assert.equal(s.attackAge[2], n);
-  }
-  engine.drain();
-  castCard(engine, 0);
-  assert.notEqual(s.attackHand[2], stale);
-  assert.equal(s.attackAge[2], 0);
-  assert.ok(engine.drain().some((ev) => ev.type === 'weathered' && ev.slot === 2));
-});
-
-test('使ったカードの枠は経過回数がリセットされ、支援呪文の詠唱でも風化は進む', () => {
+test('使った攻撃カードの枠だけが入れ替わり、他の枠はそのまま残る', () => {
   const engine = setup();
   const s = engine.state;
   s.player.mp = 100;
-  castCard(engine, 'empower');
-  assert.deepEqual(s.attackAge, [1, 1, 1]);
+  const [a, b, c] = s.attackHand;
+  for (let n = 0; n < 8; n++) castCard(engine, 'empower'), (s.cooldowns.empower = 0), (s.player.mp = 100);
+  assert.deepEqual(s.attackHand, [a, b, c], '支援呪文では入れ替わらない');
   castCard(engine, 0);
-  assert.deepEqual(s.attackAge, [0, 2, 2]);
+  assert.notEqual(s.attackHand[0], a);
+  assert.equal(s.attackHand[1], b);
+  assert.equal(s.attackHand[2], c);
 });
 
 test('引き直し: MP とリキャストを消費して攻撃3枠を入れ替える', () => {
@@ -103,11 +90,8 @@ test('MP不足のときは★★★枠に★★が来ることがある', () => 
   let tier2 = 0;
   for (let seed = 1; seed <= 200; seed++) {
     const engine = setup({ seed });
-    engine.state.player.mp = 0;
-    castCard(engine, 0); // ★は MP 0 で撃てる。★★★枠も風化を進める
-    engine.state.player.mp = 0;
-    engine.state.attackAge[2] = HAND.weatherAfter - 1;
-    castCard(engine, 0);
+    engine.state.player.mp = HAND.redraw.mp; // 引き直し後の MP は 0
+    engine.redraw();
     if (engine.state.attackHand[2].tier === 2) tier2++;
   }
   assert.ok(tier2 > 50 && tier2 < 150, `${tier2}/200`);

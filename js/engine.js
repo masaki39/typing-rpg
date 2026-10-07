@@ -58,7 +58,6 @@
       player: null,
       enemy: null,
       attackHand: [],
-      attackAge: [0, 0, 0], // 各枠のカードが使われずに過ぎた詠唱回数
       cooldowns: {},
       cast: null,
       combo: 0,
@@ -120,27 +119,11 @@
     function replaceAttack(slot) {
       const others = state.attackHand.filter((_, i) => i !== slot);
       state.attackHand[slot] = drawAttack(slot, [...others, state.attackHand[slot]]);
-      state.attackAge[slot] = 0;
     }
 
     function dealAttackHand() {
       state.attackHand = [];
       for (const slot of [0, 1, 2]) state.attackHand.push(drawAttack(slot, state.attackHand));
-      state.attackAge = [0, 0, 0];
-    }
-
-    /** 使われない攻撃カードを風化させる (呪文を唱えるたびに呼ぶ) */
-    function weatherAttacks(usedSlot) {
-      for (let i = 0; i < state.attackHand.length; i++) {
-        if (i === usedSlot) continue;
-        state.attackAge[i]++;
-        if (state.attackAge[i] >= HAND.weatherAfter) {
-          const old = state.attackHand[i];
-          replaceAttack(i);
-          log(`「${old.name}」は風化して消えた。`);
-          emit('weathered', { slot: i, from: old, to: state.attackHand[i] });
-        }
-      }
     }
 
     function canRedraw() {
@@ -155,7 +138,6 @@
       const old = state.attackHand;
       state.attackHand = [];
       for (const slot of [0, 1, 2]) state.attackHand.push(drawAttack(slot, [...state.attackHand, old[slot]]));
-      state.attackAge = [0, 0, 0];
       resetCast();
       log('手札を引き直した。');
       emit('redraw');
@@ -468,7 +450,6 @@
           log(`「${spell.name}」！ 魔力が高まった。`);
           break;
       }
-      if (e.hp > 0) weatherAttacks(spell.role === 'attack' ? index : -1);
       resetCast();
 
       if (e.hp <= 0) win();
