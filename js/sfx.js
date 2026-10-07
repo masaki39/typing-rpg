@@ -42,6 +42,7 @@
     heal() {
       [523, 659, 784].forEach((f, i) => tone(f, 0.15, { type: 'sine', vol: 0.06, delay: i * 0.07 }));
     },
+    warn() { tone(660, 0.08, { type: 'square', vol: 0.03 }); tone(660, 0.08, { type: 'square', vol: 0.03, delay: 0.12 }); },
     hurt(heavy) { tone(heavy ? 90 : 130, heavy ? 0.35 : 0.2, { type: 'sawtooth', vol: 0.07, slide: -60 }); },
     win() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.18, { type: 'triangle', vol: 0.06, delay: i * 0.1 })); },
     lose() { [392, 330, 262, 196].forEach((f, i) => tone(f, 0.25, { type: 'triangle', vol: 0.06, delay: i * 0.15 })); },

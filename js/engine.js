@@ -61,6 +61,7 @@
       combo: 0,
       stats: newStats(),
       result: null,
+      lastHit: null,
     };
 
     const diff = () => DIFFICULTIES[state.difficulty];
@@ -127,6 +128,7 @@
       for (const tier of [1, 2, 3]) state.attackHand.push(drawAttack(tier, state.attackHand));
       resetCast();
       state.result = null;
+      state.lastHit = null;
       state.phase = 'battle';
       log(`${def.name}が現れた！`);
       emit('stageStart');
@@ -188,6 +190,7 @@
       const p = state.player;
       const d = diff();
       log(`${state.enemy.name}の「${ability.name}」！`);
+      state.lastHit = ability;
       const base = ability.type === 'enrage' ? ability.damage : ability.damage * d.damageMult;
       const barrier = ability.type !== 'enrage' && p.barrier ? p.barrier.reduce : 0;
       const r = Battle.incomingDamage({ base, barrier, vulnMult: p.vuln ? p.vuln.mult : 1 });

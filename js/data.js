@@ -63,7 +63,7 @@
     { id: 'regen', name: '再生の祈り', kana: 'さいせいのいのり', element: 'heal', role: 'regen', mp: 14, cd: 20,
       perSec: 4, duration: 12, desc: '12秒間HPを継続回復' },
     { id: 'barrier', name: '守りの盾', kana: 'まもりのたて', element: 'guard', role: 'barrier', mp: 10, cd: 12,
-      reduce: 0.75, duration: 6, desc: '6秒間 被ダメージ75%軽減・詠唱を守る' },
+      reduce: 0.75, duration: 6, desc: '6秒間 被ダメ75%減・詠唱保護' },
     { id: 'silence', name: '黙れ', kana: 'だまれ', element: 'silence', role: 'interrupt', mp: 5, cd: 10,
       desc: '中断可能な敵の詠唱を止める' },
     { id: 'cleanse', name: '浄化', kana: 'じょうか', element: 'pure', role: 'cleanse', mp: 8, cd: 8,
