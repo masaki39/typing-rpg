@@ -74,16 +74,16 @@ export function properPolicy(engine, { keyMs, reaction }) {
     return typeMs(0) < tb - window && ok(0) ? 0 : null;
   }
 
-  // 中断の先行入力: 次に来るなら構えておく
-  const ts = timeUntil(engine, (a) => a.type === 'interruptible', { start: true });
-  if (!p.silenceReady && ok(si) && ts < skill('silence').ready * 1000 - 500) return si;
-
   // 次の大技を受けても耐えられる HP を保つ (バスターは盾込みで見積もる)
   const nextBig = [ab, ...engine.upcoming(2)].find((a) => a && Battle.consumesBarrier(a.type));
   if (nextBig && ok(id('heal'))) {
     const mult = engine.diff().damageMult * (p.vuln ? p.vuln.mult : 1) * (nextBig.type === 'buster' ? 0.25 : 1);
     if (p.hp <= nextBig.damage * mult + 12) return id('heal');
   }
+
+  // 中断の先行入力: 次に来るなら構えておく
+  const ts = timeUntil(engine, (a) => a.type === 'interruptible', { start: true });
+  if (!p.silenceReady && ok(si) && ts < skill('silence').ready * 1000 - 500) return si;
 
   // 浄化: 継続ダメージの着弾前に加護を張る (先行入力)、付いてしまったら解除
   const ci = id('cleanse');
@@ -131,8 +131,13 @@ export const BOTS = {
 };
 
 /** 1ステージを bot で戦う */
-export function runStage({ difficulty, stage, bot, seed = 1, reaction = 300, maxMs = 600000, trace = null, onDecision = null }) {
-  const { policy, kps, missRate } = BOTS[bot];
+export function runStage({
+  difficulty, stage, bot, seed = 1, reaction = 300, maxMs = 600000, trace = null, onDecision = null,
+  kps: kpsOverride, missRate: missOverride,
+}) {
+  const { policy } = BOTS[bot];
+  const kps = kpsOverride ?? BOTS[bot].kps;
+  const missRate = missOverride ?? BOTS[bot].missRate;
   const rng = mulberry32(seed);
   const engine = createEngine({ difficulty, rng: mulberry32(seed * 7919) });
   engine.startStage(stage);
@@ -179,10 +184,10 @@ export function runStage({ difficulty, stage, bot, seed = 1, reaction = 300, max
 }
 
 /** 全ステージをリトライなしで通す */
-export function runAll({ difficulty, bot, seed = 1 }) {
+export function runAll({ difficulty, bot, seed = 1, ...opts }) {
   const stages = [];
   for (let stage = 0; stage < ENEMIES.length; stage++) {
-    const r = runStage({ difficulty, stage, bot, seed: seed * 100 + stage });
+    const r = runStage({ difficulty, stage, bot, seed: seed * 100 + stage, ...opts });
     stages.push(r);
     if (!r.win) break;
   }

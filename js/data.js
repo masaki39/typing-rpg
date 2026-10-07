@@ -12,15 +12,17 @@
   // level: タイムラインの「@N」付きの技は level >= N のときだけ使われる
   // castMult: 敵の詠唱時間 / damageMult: 被ダメージ / enrageMult: 時間切れまでの時間
   // enemyHpMult: 敵HP / mpRegen: MP自然回復(毎秒) / showNext: 次の技を表示するか
+  // speedGuide: 打鍵速度の目安 (正打鍵/秒 = 寿司打の平均キータイプ数相当)。全4面を再挑戦なしで
+  //   通せる確率が 50% / 80% になる速度。node tools/speed.mjs 80 0.05 の結果 (ミス率5%) から転記
   const DIFFICULTIES = {
-    easy: { label: 'Easy', desc: '敵の詠唱が遅く、被ダメージ控えめ。一部ギミックなし。', level: 0,
+    easy: { label: 'Easy', desc: '敵の詠唱が遅く、被ダメージ控えめ。一部ギミックなし。', level: 0, speedGuide: { p50: 1.7, p80: 1.9 },
       castMult: 1.4, damageMult: 0.5, enrageMult: 1.6, enemyHpMult: 0.7, mpRegen: 2.0, showNext: true },
-    normal: { label: 'Normal', desc: '標準。ギミックに対応しないと勝てない。', level: 1,
+    normal: { label: 'Normal', desc: '標準。ギミックに対応しないと勝てない。', level: 1, speedGuide: { p50: 4.1, p80: 4.9 },
       castMult: 1.0, damageMult: 1.0, enrageMult: 1.0, enemyHpMult: 1.0, mpRegen: 1.3, showNext: true },
-    hard: { label: 'Hard', desc: '詠唱が速く被ダメ増。次の技は表示されない。', level: 2,
-      castMult: 0.85, damageMult: 1.2, enrageMult: 0.9, enemyHpMult: 1.1, mpRegen: 0.8, showNext: false },
-    savage: { label: 'Savage', desc: '零式。追加ギミックあり。タイムラインを覚えて挑め。', level: 3,
-      castMult: 0.8, damageMult: 1.2, enrageMult: 0.85, enemyHpMult: 1.1, mpRegen: 1.0, showNext: false },
+    hard: { label: 'Hard', desc: '詠唱が速く被ダメ増。次の技は表示されない。', level: 2, speedGuide: { p50: 5.4, p80: 6.3 },
+      castMult: 0.85, damageMult: 1.2, enrageMult: 0.95, enemyHpMult: 1.0, mpRegen: 1.1, showNext: false },
+    savage: { label: 'Savage', desc: '零式。追加ギミックあり。タイムラインを覚えて挑め。', level: 3, speedGuide: { p50: 7.5, p80: 8.7 },
+      castMult: 0.8, damageMult: 1.22, enrageMult: 0.85, enemyHpMult: 1.2, mpRegen: 1.0, showNext: false },
   };
   const DIFFICULTY_ORDER = ['easy', 'normal', 'hard', 'savage'];
 

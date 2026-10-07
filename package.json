@@ -5,6 +5,7 @@
   "description": "呪文詠唱タイピングRPG (静的サイト / 依存ゼロ)",
   "scripts": {
     "test": "node --test",
-    "simulate": "node tools/simulate.mjs"
+    "simulate": "node tools/simulate.mjs",
+    "speed": "node tools/speed.mjs"
   }
 }

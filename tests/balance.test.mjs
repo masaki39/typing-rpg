@@ -35,3 +35,20 @@ test('(d) Savage は速い bot で一部だけクリアできる', () => {
   const rate = seeds.filter((seed) => runAll({ difficulty: 'savage', bot: 'expert', seed }).clear).length / seeds.length;
   assert.ok(rate >= 0.15 && rate <= 0.75, `Savage expert ${rate}`);
 });
+
+test('タイトルに出す打鍵速度の目安が実測と矛盾しない', async () => {
+  const { createRequire } = await import('node:module');
+  const { DIFFICULTIES } = createRequire(import.meta.url)('../js/data.js');
+  const missRate = 0.05;
+  const seeds = Array.from({ length: 20 }, (_, i) => i + 1);
+  const rateAt = (difficulty, correctPerSec) => {
+    const kps = correctPerSec * (1 + missRate); // 正打鍵/秒 → ミス込みの打鍵速度
+    return seeds.filter((seed) => runAll({ difficulty, bot: 'proper', seed, kps, missRate }).clear).length / seeds.length;
+  };
+  for (const [key, d] of Object.entries(DIFFICULTIES)) {
+    const g = d.speedGuide;
+    assert.ok(g.p50 <= g.p80, key);
+    assert.ok(rateAt(key, g.p80 + 0.5) >= 0.7, `${key}: 目安上限 +0.5 で 70% 以上`);
+    assert.ok(rateAt(key, g.p50 - 0.7) <= 0.5, `${key}: 目安下限 -0.7 で 50% 以下`);
+  }
+});
