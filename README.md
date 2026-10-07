@@ -142,7 +142,7 @@ screenshots/          画面のスクリーンショット
 
 ## 公開（GitHub Pages）
 
-`main` に push すると `.github/workflows/pages.yml` がテストを実行し、ゲームに必要なファイルだけ（`tests/` `tools/` は除く）を GitHub Pages に公開します。初回はリポジトリの Settings → Pages → Source を **GitHub Actions** にしてください。`index.html` の `og:image` / `og:url` は `https://masaki39.github.io/typing-rpg/` を前提にしているので、公開先が違う場合は書き換えてください。
+`main` に push すると `.github/workflows/pages.yml` がテストを実行し、ゲームに必要なファイルだけ（`tests/` `tools/` は除く）を GitHub Pages に公開します。公開先は https://masaki39.net/typing-rpg/ （Settings → Pages → Source は **GitHub Actions**）。`index.html` の `og:image` / `og:url` は `https://masaki39.net/typing-rpg/` を前提にしているので、公開先が違う場合は書き換えてください。
 
 `romaji.js` / `battle.js` / `data.js` / `engine.js` は DOM 非依存で、ブラウザではグローバル変数、Node では `require` で読み込めます（`file://` で開けるよう ES Modules は使っていません）。
 
