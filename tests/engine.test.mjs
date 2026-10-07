@@ -97,20 +97,91 @@ test('継続ダメージは浄化で解除できる', () => {
   assert.equal(p.dot, null);
 });
 
-test('詠唱中の被弾: 通常攻撃は乱れ、大技は詠唱が途切れる、障壁があれば守られる', () => {
+test('詠唱中に被弾しても入力はリセットされず、乱れ(威力減)が付くだけ', () => {
   const engine = setup();
   const romaji = engine.cards()[2].romaji;
   for (const ch of romaji.slice(0, 5)) engine.key(ch);
+  const typed = engine.state.cast.matchers[2].typed;
+  const live = [...engine.state.cast.live];
   engine.tick(forceEnemyCast(engine, 'tackle'));
-  assert.equal(engine.state.cast.disrupts, 1);
   engine.tick(forceEnemyCast(engine, 'tsunami'));
-  assert.equal(engine.state.cast.started, false);
-  assert.equal(engine.state.stats.broken, 1);
+  const c = engine.state.cast;
+  assert.equal(c.started, true);
+  assert.equal(c.matchers[2].typed, typed, '入力済みの文字列はそのまま');
+  assert.deepEqual(c.live, live, '候補の絞り込みもそのまま');
+  assert.equal(c.disrupts, 2);
+  // 続きを打てば詠唱できる
+  for (const ch of romaji.slice(5)) engine.key(ch);
+  assert.ok(engine.state.enemy.hp < engine.state.enemy.maxHp);
+});
 
+test('盾は通常攻撃では消えず、大技1回で消費される。盾中は乱れない', () => {
+  const engine = setup();
   castCard(engine, 'barrier');
+  const p = engine.state.player;
   for (const ch of engine.cards()[2].romaji.slice(0, 5)) engine.key(ch);
+  engine.tick(forceEnemyCast(engine, 'tackle'));
+  assert.ok(p.barrier, '通常攻撃では消えない');
   engine.tick(forceEnemyCast(engine, 'tsunami'));
-  assert.equal(engine.state.cast.started, true);
+  assert.equal(p.barrier, null, '大技で消費');
+  assert.equal(engine.state.cast.disrupts, 0);
+});
+
+test('盾は最大持続時間で切れる', () => {
+  const engine = setup();
+  castCard(engine, 'barrier');
+  const barrier = engine.cards().find((c) => c.id === 'barrier');
+  engine.tick(barrier.duration * 1000 - 100);
+  assert.ok(engine.state.player.barrier);
+  engine.tick(200);
+  assert.equal(engine.state.player.barrier, null);
+});
+
+test('浄化の先行入力: 着弾前に唱えると加護で継続ダメージを防ぐ', () => {
+  const engine = setup();
+  const ms = forceEnemyCast(engine, 'acid');
+  engine.tick(ms / 2);
+  castCard(engine, 'cleanse'); // 詠唱バーが出ている間に唱える
+  assert.ok(engine.state.player.ward);
+  engine.tick(ms);
+  assert.equal(engine.state.player.dot, null);
+  assert.equal(engine.state.player.ward, null, '加護は1回で消費');
+  assert.equal(engine.state.stats.warded, 1);
+});
+
+test('加護は時間で切れる', () => {
+  const engine = setup();
+  castCard(engine, 'cleanse');
+  const cleanse = engine.cards().find((c) => c.id === 'cleanse');
+  engine.tick(cleanse.ward * 1000 + 100);
+  engine.tick(forceEnemyCast(engine, 'acid'));
+  assert.ok(engine.state.player.dot);
+});
+
+test('「黙れ」の先行入力: 構え中に中断可能技の詠唱が始まると即座に止める', () => {
+  const engine = setup({ stage: 2 });
+  const e = engine.state.enemy;
+  castCard(engine, 'silence');
+  assert.ok(engine.state.player.silenceReady);
+  // タイムラインを中断可能技の直前にして、次の詠唱を始めさせる
+  e.timelineIndex = e.timelines[0].indexOf('hammer');
+  e.gapLeft = 100;
+  engine.tick(200);
+  assert.equal(e.cast, null);
+  assert.equal(engine.state.stats.interrupts, 1);
+  assert.equal(engine.state.player.silenceReady, null);
+});
+
+test('「黙れ」の構えは時間で切れる', () => {
+  const engine = setup({ stage: 2 });
+  const e = engine.state.enemy;
+  castCard(engine, 'silence');
+  const silence = engine.cards().find((c) => c.id === 'silence');
+  engine.tick(silence.ready * 1000 + 100);
+  e.timelineIndex = e.timelines[0].indexOf('hammer');
+  e.gapLeft = 100;
+  engine.tick(200);
+  assert.equal(e.cast.ability.type, 'interruptible');
 });
 
 test('増幅で次の攻撃が強化され、使うと消える', () => {

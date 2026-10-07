@@ -29,9 +29,10 @@
     return Math.max(0.4, 1 - 0.1 * misses);
   }
 
-  /** 詠唱中に被弾するたび ×0.8 */
+  /** 詠唱中に被弾するたび ×0.85 (入力はリセットしない) */
+  const DISRUPT_MULT = 0.85;
   function disruptMultiplier(disrupts) {
-    return Math.pow(0.8, disrupts);
+    return Math.pow(DISRUPT_MULT, disrupts);
   }
 
   /** ノーミス連続詠唱でコンボ1ごとに +5%、上限 +50% */
@@ -68,17 +69,21 @@
   }
 
   /**
-   * 詠唱中に被弾したときの影響。障壁で守られていれば影響なし、
-   * 通常攻撃・継続ダメージ付与は「乱れ」(威力減)、大技は詠唱が途切れる。
+   * 詠唱中に被弾したときの影響。入力中の文字列は決して消さず、
+   * 盾で守られていなければ「乱れ」(威力 ×0.85) になるだけ。
    */
-  function castDisruption(abilityType, shielded) {
-    if (shielded) return 'none';
-    if (abilityType === 'auto' || abilityType === 'dot') return 'disrupt';
-    return 'interrupt';
+  function castDisruption(shielded) {
+    return shielded ? 'none' : 'disrupt';
+  }
+
+  /** 盾を消費する技 (通常攻撃と継続ダメージ付与では消費しない) */
+  function consumesBarrier(abilityType) {
+    return abilityType !== 'auto' && abilityType !== 'dot';
   }
 
   return {
-    BEATS, spellPower, canCast, applyMp, incomingDamage, castDisruption, elementMultiplier, missMultiplier,
+    BEATS, DISRUPT_MULT, spellPower, canCast, applyMp, incomingDamage, castDisruption, consumesBarrier,
+    elementMultiplier, missMultiplier,
     disruptMultiplier, comboMultiplier, computeDamage, computeHeal,
   };
 });

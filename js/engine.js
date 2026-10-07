@@ -42,7 +42,7 @@
   }
 
   function newStats() {
-    return { correct: 0, miss: 0, activeMs: 0, casts: 0, maxCombo: 0, damage: 0, interrupts: 0, broken: 0 };
+    return { correct: 0, miss: 0, activeMs: 0, casts: 0, maxCombo: 0, damage: 0, interrupts: 0, disrupted: 0, warded: 0 };
   }
 
   function createEngine({ difficulty = 'normal', rng = Math.random } = {}) {
@@ -183,7 +183,7 @@
       state.stage = index;
       state.player = {
         hp: PLAYER.maxHp, maxHp: PLAYER.maxHp, mp: PLAYER.startMp, maxMp: PLAYER.maxMp,
-        barrier: null, regen: null, dot: null, vuln: null, empower: null,
+        barrier: null, regen: null, dot: null, vuln: null, empower: null, ward: null, silenceReady: null,
       };
       state.enemy = {
         def, name: def.name, element: def.element, hp: maxHp, maxHp,
@@ -237,6 +237,21 @@
       const mult = ability.type === 'enrage' ? 1 : diff().castMult;
       e.cast = { ability, elapsed: 0, duration: ability.cast * mult * 1000 };
       emit('enemyCast', { ability });
+      // 「黙れ」の構え中なら詠唱開始と同時に止める (先行入力を正当な対応にする)
+      const p = state.player;
+      if (ability.type === 'interruptible' && p.silenceReady) {
+        p.silenceReady = null;
+        interruptEnemy('構えていた「黙れ」が');
+      }
+    }
+
+    function interruptEnemy(prefix) {
+      const e = state.enemy;
+      log(`${prefix}${e.cast.ability.name}を中断させた！`);
+      e.cast = null;
+      e.gapLeft = e.def.gap * diff().castMult * 1000;
+      state.stats.interrupts++;
+      emit('interrupted');
     }
 
     function startNextCast() {
@@ -267,33 +282,35 @@
       const base = ability.type === 'enrage' ? ability.damage : ability.damage * d.damageMult;
       const barrier = ability.type !== 'enrage' && p.barrier ? p.barrier.reduce : 0;
       const r = Battle.incomingDamage({ base, barrier, vulnMult: p.vuln ? p.vuln.mult : 1 });
-      if (r.barrierUsed) log('障壁がダメージを軽減した！');
+      if (r.barrierUsed && Battle.consumesBarrier(ability.type)) {
+        p.barrier = null;
+        log('盾がダメージを軽減して砕けた！');
+      }
       p.hp -= r.damage;
       emit('playerHit', { amount: r.damage, abilityType: ability.type, blocked: r.barrierUsed });
 
       if (ability.type === 'dot') {
-        p.dot = { name: ability.dot.name, perSec: ability.dot.perSec * d.damageMult, remaining: ability.dot.duration * 1000 };
-        log(`${ability.dot.name}状態になった（継続ダメージ）`);
+        if (p.ward) {
+          p.ward = null;
+          state.stats.warded++;
+          log(`加護が${ability.dot.name}を防いだ！`);
+          emit('warded');
+        } else {
+          p.dot = { name: ability.dot.name, perSec: ability.dot.perSec * d.damageMult, remaining: ability.dot.duration * 1000 };
+          log(`${ability.dot.name}状態になった（継続ダメージ）`);
+        }
       }
       if (ability.type === 'interruptible') {
         p.vuln = { name: ability.vuln.name, mult: ability.vuln.mult, remaining: ability.vuln.duration * 1000 };
         log(`${ability.vuln.name}状態になった（被ダメージ ×${ability.vuln.mult}）`);
       }
 
+      // 被弾しても入力中の詠唱はそのまま (威力が少し下がるだけ)
       const c = state.cast;
-      if (c.started) {
-        const effect = Battle.castDisruption(ability.type, r.barrierUsed);
-        if (effect === 'disrupt') {
-          c.disrupts++;
-          log('詠唱が乱れた！（威力 ×0.8）');
-        } else if (effect === 'interrupt') {
-          state.stats.broken++;
-          resetCast();
-          log('衝撃で詠唱が途切れた！');
-          emit('castBroken');
-        } else {
-          log('障壁が詠唱を守った。');
-        }
+      if (c.started && Battle.castDisruption(r.barrierUsed) === 'disrupt') {
+        c.disrupts++;
+        state.stats.disrupted++;
+        emit('disrupted');
       }
       if (p.hp <= 0) lose(ability.type === 'enrage' ? 'enrage' : 'hp');
     }
@@ -312,7 +329,7 @@
         state.cooldowns[id] -= ms;
         if (state.cooldowns[id] <= 0) delete state.cooldowns[id];
       }
-      for (const key of ['barrier', 'regen', 'dot', 'vuln']) {
+      for (const key of ['barrier', 'regen', 'dot', 'vuln', 'ward', 'silenceReady']) {
         const eff = p[key];
         if (!eff) continue;
         const t = Math.min(ms, eff.remaining) / 1000;
@@ -423,29 +440,24 @@
         case 'barrier':
           p.barrier = { reduce: spell.reduce, remaining: spell.duration * 1000 };
           emit('buff', { spell });
-          log(`「${spell.name}」！ 障壁を張った。`);
+          log(`「${spell.name}」！ 盾を構えた（次の大技を軽減）。`);
           break;
         case 'interrupt':
           if (e.cast && e.cast.ability.type === 'interruptible') {
-            log(`「${spell.name}」！ ${e.cast.ability.name}を中断させた！`);
-            e.cast = null;
-            e.gapLeft = e.def.gap * diff().castMult * 1000;
-            state.stats.interrupts++;
-            emit('interrupted');
+            interruptEnemy(`「${spell.name}」！ `);
           } else {
-            log(`「${spell.name}」！ …しかし何も起きなかった。`);
-            emit('fizzle');
+            // 早すぎても無駄にしない: 構えておき、中断可能技の詠唱が始まった瞬間に止める
+            p.silenceReady = { remaining: spell.ready * 1000 };
+            emit('buff', { spell });
+            log(`「${spell.name}」！ 敵の詠唱に備えて構えた。`);
           }
           break;
         case 'cleanse':
-          if (p.dot) {
-            log(`「${spell.name}」！ ${p.dot.name}が消えた。`);
-            p.dot = null;
-            emit('buff', { spell });
-          } else {
-            log(`「${spell.name}」！ …消すものがなかった。`);
-            emit('fizzle');
-          }
+          if (p.dot) log(`「${spell.name}」！ ${p.dot.name}が消えた。`);
+          else log(`「${spell.name}」！ 加護に包まれた（継続ダメージを防ぐ）。`);
+          p.dot = null;
+          p.ward = { remaining: spell.ward * 1000 };
+          emit('buff', { spell });
           break;
         case 'buff':
           p.empower = { mult: spell.mult };

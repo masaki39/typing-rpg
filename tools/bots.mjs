@@ -12,20 +12,24 @@ const Battle = require('../js/battle.js');
 /** 盾で受けたい大技 (バスター、または強力な全体攻撃) */
 const isBig = (ab) => ab.type === 'buster' || (ab.type === 'raidwide' && ab.damage >= 40);
 
-/** 条件に合う技が着弾するまでのおおよその時間 (ms)。タイムラインを先読みする */
-function timeUntil(engine, match) {
+/**
+ * 条件に合う技の詠唱開始 (start=true) または着弾までのおおよその時間 (ms)。
+ * タイムラインを先読みする。
+ */
+function timeUntil(engine, match, { start = false } = {}) {
   const e = engine.state.enemy;
   const castMult = engine.diff().castMult;
   const gap = e.def.gap * castMult * 1000;
   let t = 0;
   if (e.cast) {
     t = e.cast.duration - e.cast.elapsed;
-    if (match(e.cast.ability)) return t;
+    if (match(e.cast.ability)) return start ? 0 : t;
     t += gap;
   } else {
     t = Math.max(0, e.gapLeft);
   }
   for (const ab of engine.upcoming(4)) {
+    if (start && match(ab)) return t;
     t += ab.cast * castMult * 1000;
     if (match(ab)) return t;
     t += gap;
@@ -49,34 +53,48 @@ export function greedyPolicy(engine) {
 export function properPolicy(engine, { keyMs, reaction }) {
   const { list, index, ok } = finder(engine);
   const { player: p, enemy: e } = engine.state;
-  const cast = e.cast;
-  const ab = cast && cast.ability;
-  const next = engine.upcoming(1)[0];
-  const castMult = engine.diff().castMult;
-  // 次に「大技」が着弾するまでの時間 (通常攻撃なら乱れるだけなので無視)
-  const left = cast
-    ? (ab.type === 'auto' ? Infinity : cast.duration - cast.elapsed)
-    : (next && next.type !== 'auto' ? e.gapLeft + next.cast * castMult * 1000 : Infinity);
+  const ab = e.cast && e.cast.ability;
   const typeMs = (i) => list[i].romaji.length * keyMs * 1.1 + reaction;
   const id = (name) => index(name);
+  const skill = (name) => list[id(name)];
 
-  if (ab && ab.type === 'interruptible' && ok(id('silence'))) return id('silence');
-  // バスター着弾の 5.5 秒前から盾を張る。直前に長い詠唱を始めて間に合わなくならないよう、
-  // 窓が近いときは短い呪文か待機でつなぐ
+  // 中断: 詠唱中なら即
+  const si = id('silence');
+  if (ab && ab.type === 'interruptible' && ok(si)) return si;
+
+  // 盾: 大技の着弾前に張る。間に別の大技が来ると先に消費されるので、そのときは待つ。
+  // 窓が近いときに長い呪文を始めて間に合わなくならないよう、短い呪文か待機でつなぐ
   const bi = id('barrier');
   const tb = timeUntil(engine, isBig);
-  const window = list[bi].duration * 1000 - 500;
+  const tn = timeUntil(engine, (a) => Battle.consumesBarrier(a.type));
+  const window = skill('barrier').duration * 1000 - 500;
   const cdLeft = engine.state.cooldowns.barrier || 0;
-  if (!p.barrier && cdLeft + typeMs(bi) < tb && tb < window + 4000) {
+  if (!p.barrier && tn >= tb && cdLeft + typeMs(bi) < tb && tb < window + 4000) {
     if (tb <= window) return ok(bi) ? bi : null;
     return typeMs(0) < tb - window && ok(0) ? 0 : null;
   }
-  if (p.dot && p.dot.remaining > 5000 && ok(id('cleanse'))) return id('cleanse');
+
+  // 中断の先行入力: 次に来るなら構えておく
+  const ts = timeUntil(engine, (a) => a.type === 'interruptible', { start: true });
+  if (!p.silenceReady && ok(si) && ts < skill('silence').ready * 1000 - 500) return si;
+
+  // 次の大技を受けても耐えられる HP を保つ (バスターは盾込みで見積もる)
+  const nextBig = [ab, ...engine.upcoming(2)].find((a) => a && Battle.consumesBarrier(a.type));
+  if (nextBig && ok(id('heal'))) {
+    const mult = engine.diff().damageMult * (p.vuln ? p.vuln.mult : 1) * (nextBig.type === 'buster' ? 0.25 : 1);
+    if (p.hp <= nextBig.damage * mult + 12) return id('heal');
+  }
+
+  // 浄化: 継続ダメージの着弾前に加護を張る (先行入力)、付いてしまったら解除
+  const ci = id('cleanse');
+  const td = timeUntil(engine, (a) => a.type === 'dot');
+  if (!p.ward && ok(ci) && (td < skill('cleanse').ward * 1000 - 500 || (p.dot && p.dot.remaining > 5000))) return ci;
+
   if (p.hp < 45 && ok(id('heal'))) return id('heal');
   if (p.hp < 75 && !p.regen && ok(id('regen'))) return id('regen');
   if (!p.empower && p.mp >= 55 && ok(id('empower'))) return id('empower');
 
-  const reserve = 26; // 障壁 + 回復ぶんは残す
+  const reserve = 26; // 盾 + 回復ぶんは残す
   const resisted = (i) => Battle.elementMultiplier(list[i].element, e.element) < 1;
   // 撃てて有効な攻撃カードが1枚もなければ引き直す
   if (![0, 1, 2].some((i) => ok(i) && !resisted(i)) && engine.canRedraw()) return 'redraw';
@@ -86,8 +104,7 @@ export function properPolicy(engine, { keyMs, reaction }) {
       const s = list[i];
       if (!ok(i) || (avoidResist && resisted(i))) continue;
       if (s.mp && p.mp - s.mp < reserve) continue;
-      const safe = p.barrier || typeMs(i) < left;
-      if (safe) return i;
+      return i;
     }
   }
   return 0;
