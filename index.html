@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>呪文詠唱タイピングRPG</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <h1>呪文詠唱タイピングRPG</h1>
+      <div id="stage-label" class="stage-label"></div>
+      <button id="sound-toggle" class="sound-toggle" type="button" title="効果音の切り替え">🔊</button>
+    </header>
+
+    <main class="battlefield">
+      <section class="enemy-area" id="enemy-area">
+        <div class="enemy-header">
+          <span id="enemy-element" class="badge"></span>
+          <span id="enemy-name" class="enemy-name"></span>
+        </div>
+        <div id="enemy-sprite" class="sprite"></div>
+        <div class="bar hp-bar"><div id="enemy-hp-fill" class="fill"></div><span id="enemy-hp-text" class="bar-text"></span></div>
+        <div class="bar timer-bar"><div id="enemy-timer-fill" class="fill"></div><span class="bar-text">次の攻撃</span></div>
+        <div id="enemy-intent" class="intent"></div>
+        <div id="enemy-fx" class="fx-layer"></div>
+      </section>
+
+      <aside class="side">
+        <div class="panel element-chart">
+          <h2>属性相性</h2>
+          <p class="chart">💧水 → 🔥火 → ❄️氷 → ⚡雷 → 💧水</p>
+          <p class="note">矢印の先に<strong>2倍</strong>／同属性は<strong>半減</strong></p>
+        </div>
+        <div class="panel">
+          <h2>戦績</h2>
+          <dl class="stats">
+            <dt>コンボ</dt><dd id="stat-combo">0</dd>
+            <dt>KPM</dt><dd id="stat-kpm">0</dd>
+            <dt>正確率</dt><dd id="stat-acc">-</dd>
+            <dt>ミス</dt><dd id="stat-miss">0</dd>
+          </dl>
+        </div>
+        <ul id="log" class="panel log"></ul>
+      </aside>
+    </main>
+
+    <section class="player-area" id="player-area">
+      <div class="player-label">勇者 HP</div>
+      <div class="bar hp-bar player"><div id="player-hp-fill" class="fill"></div><span id="player-hp-text" class="bar-text"></span></div>
+      <div id="player-fx" class="fx-layer"></div>
+    </section>
+
+    <section id="hand" class="hand" aria-live="polite"></section>
+
+    <p class="help">呪文を打ち始めると候補が絞られます／<kbd>Esc</kbd>・<kbd>Backspace</kbd>で詠唱を破棄／入力は<strong>半角英数（IMEオフ）</strong>で</p>
+    <p id="ime-warning" class="ime-warning hidden">IMEがオンになっています。半角英数入力に切り替えてください。</p>
+
+    <div id="overlay" class="overlay">
+      <div id="overlay-content" class="overlay-panel"></div>
+    </div>
+  </div>
+
+  <script src="js/romaji.js"></script>
+  <script src="js/battle.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/sfx.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
